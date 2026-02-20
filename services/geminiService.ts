@@ -6,58 +6,48 @@ export const analyzeLegalDocument = async (input: LegalAnalysisInput): Promise<s
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const systemInstruction = `
-Aja como um Assistente Jurídico Corporativo expert em direito brasileiro, focado em construção civil e incorporação.
-Sua tarefa é analisar o documento jurídico com rigor técnico para mitigação de riscos.
+Você é um Auditor Jurídico Sênior especializado em Gestão de Riscos para o Setor de Engenharia Civil Brasileira.
+Sua missão é proteger a ${input.empresa} através de uma análise técnica, cética e extremamente realista.
 
-LÓGICA DE CÁLCULO DO SCORE (METODOLOGIA):
-O score final (0-100) deve ser a média ponderada das seguintes categorias:
-1. Risco Financeiro (Peso 30%): Exposição a multas, falta de reajuste, juros abusivos.
-2. Risco Trabalhista (Peso 25%): Responsabilidade solidária/subsidiária, encargos, segurança do trabalho.
-3. Risco Jurídico Estrutural (Peso 20%): Validade de cláusulas, foro, competência, vícios de forma.
-4. Risco Operacional (Peso 15%): Prazos irreais, falta de escopo definido, penalidades de execução.
-5. Risco Estratégico (Peso 10%): Cláusulas de exclusividade, rescisão imotivada, reputação.
+DIRETRIZES DE RIGOR TÉCNICO:
+1. CONSISTÊNCIA: Use temperatura zero. O score deve ser matemático e justificável.
+2. RIGOR FINANCEIRO: Contratos de PMG sem "CAP" (limite) de prejuízo ou sem reajuste trimestral/semestral devem ser penalizados severamente no Score Financeiro.
+3. RIGOR TRABALHISTA: Qualquer dubiedade sobre responsabilidade por terceirizados deve elevar o risco.
 
-CLASSIFICAÇÃO:
-- 0–25 (Baixo): Documento equilibrado, riscos mitigados. (ALVO IDEAL)
-- 26–50 (Médio): Pontos de atenção moderados, necessita ajustes pontuais.
-- 51–75 (Alto): Cláusulas leoninas ou exposição financeira severa.
-- 76–100 (Crítico): Inviabilidade jurídica ou risco de prejuízo imediato.
+MATRIZ DE CÁLCULO OBRIGATÓRIA (Use esta exata proporção):
+- Risco Financeiro (30%): Avalie multas, fluxo de caixa, PMG e reajustes.
+- Risco Trabalhista (25%): Avalie obrigações subsidiárias e segurança.
+- Risco Jurídico Estrutural (20%): Avalie foro, rescisão e validade de cláusulas.
+- Risco Operacional (15%): Avalie prazos, escopo e penalidades de medição.
+- Risco Estratégico (10%): Avalie exclusividade e reputação.
 
-DADOS DE CONTEXTO DO USUÁRIO:
-- Empresa Representada: ${input.empresa} (CNPJ: ${input.cnpj})
-- Papel: ${input.papel}
-- Objetivo: ${input.objetivo}
-- Valor Informado: ${input.valor}
-- Preocupações: ${input.preocupacoes}
+Para cada categoria acima, você deve atribuir uma nota de 0 a 100 antes de calcular a média ponderada final.
 `;
 
   const promptText = `
-Realize a análise do documento anexo. O relatório deve seguir RIGOROSAMENTE esta estrutura Markdown:
+Analise o documento e gere o relatório seguindo esta estrutura:
 
 # RELATÓRIO EXECUTIVO
 
 ## Ficha Resumo do Instrumento
-(Extraia exatamente estes 9 pontos):
-1. Objeto dos Serviços:
-2. Valor do Contrato:
-3. Forma de Pagamento:
-4. Prazo de Execução:
-5. Data de Início e Término:
-6. Escopo Principal/Atividades:
-7. Responsabilidades:
-8. Penalidades por Descumprimento:
-9. Observação Importante:
+(9 pontos obrigatórios conforme solicitado pela advogada)
 
-## Score de Risco e Metodologia
-- Score Numérico: (0-100)
-- Classificação: (Baixo/Médio/Alto/Crítico)
-- Justificativa do Score: (Explique brevemente como os pesos de cada categoria influenciaram esta nota específica)
+## Dashboard de Riscos Ponderados
+(Apresente assim):
+- [FINANCEIRO]: (Nota)/100 (Peso 30%)
+- [TRABALHISTA]: (Nota)/100 (Peso 25%)
+- [ESTRUTURAL]: (Nota)/100 (Peso 20%)
+- [OPERACIONAL]: (Nota)/100 (Peso 15%)
+- [ESTRATÉGICO]: (Nota)/100 (Peso 10%)
+
+- **Score Final Consolidado**: (Média Ponderada)/100
+- **Classificação**: (Baixo/Médio/Alto/Crítico)
+
+## Justificativa Técnica do Cálculo
+(Explique por que cada nota de categoria foi escolhida. Seja específico sobre as cláusulas que elevaram o risco.)
 
 ## Resumo Analítico da IA
-(Síntese da saúde jurídica)
-
 ## Top 5 Riscos e Exposição Financeira
-(Identifique os riscos e estime a exposição máxima e provável)
 
 # ANEXO TÉCNICO
 ## Análise Estruturada por Cláusula
@@ -65,7 +55,7 @@ Realize a análise do documento anexo. O relatório deve seguir RIGOROSAMENTE es
 ## Cláusulas Ausentes ou Fragilidades
 
 # DECLARAÇÃO FINAL
-Esta análise constitui apoio técnico automatizado baseado na legislação brasileira e não substitui parecer jurídico formal.
+Esta análise constitui apoio técnico automatizado e não substitui parecer jurídico formal.
 `;
 
   const parts: any[] = [{ text: promptText }];
@@ -86,8 +76,8 @@ Esta análise constitui apoio técnico automatizado baseado na legislação bras
     contents: { parts },
     config: {
       systemInstruction,
-      temperature: 0.1,
-      thinkingConfig: { thinkingBudget: 12000 }
+      temperature: 0, // Determinismo total para evitar flutuações
+      thinkingConfig: { thinkingBudget: 15000 }
     },
   });
 
