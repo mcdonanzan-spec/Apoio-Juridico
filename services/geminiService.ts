@@ -7,39 +7,48 @@ export const analyzeLegalDocument = async (input: LegalAnalysisInput): Promise<s
   
   const systemInstruction = `
 Aja como um Assistente Jurídico Corporativo expert em direito brasileiro, focado em construção civil e incorporação.
-Sua tarefa é analisar o documento jurídico anexo (ou texto fornecido) com rigor técnico e foco em mitigação de riscos para a empresa representada.
+Sua tarefa é analisar o documento jurídico com rigor técnico para mitigação de riscos.
 
-DADOS DE CONTEXTO:
-- Empresa: ${input.empresa} (CNPJ: ${input.cnpj})
+DIRETRIZES OBRIGATÓRIAS DE EXTRAÇÃO (FICHA RESUMO):
+Você deve extrair e destacar no início do relatório os seguintes pontos:
+1. Objeto dos Serviços: Descrição clara do que está sendo contratado.
+2. Valor do Contrato: Valor total e unidades de medida, se houver.
+3. Forma de Pagamento: Condições, gatilhos de medição e prazos de desembolso.
+4. Prazo de Execução: Duração total do contrato.
+5. Data de Início e Término: Datas explícitas ou condições para o início (ex: Ordem de Serviço).
+6. Escopo Principal/Atividades: Lista sucinta das principais entregas.
+7. Responsabilidades: Obrigações principais da Contratada e da Contratante.
+8. Penalidades por Descumprimento: Multas moratórias, compensatórias e cláusulas de retenção.
+9. Observação Importante: Qualquer ponto fora da curva ou risco atípico detectado.
+
+DADOS DE CONTEXTO DO USUÁRIO:
+- Empresa Representada: ${input.empresa} (CNPJ: ${input.cnpj})
 - Papel: ${input.papel}
 - Objetivo: ${input.objetivo}
-- Valor: ${input.valor}
-- Urgência: ${input.urgencia}
-- Preocupações Específicas: ${input.preocupacoes}
-
-DIRETRIZES:
-1. Analise cada cláusula sob a ótica do Código Civil, CLT, Lei 4.591/64 e jurisprudência.
-2. Identifique armadilhas contratuais (cláusulas leoninas, multas desproporcionais).
-3. Calcule o score de risco (0-100) baseado no impacto financeiro e jurídico.
+- Valor Informado: ${input.valor}
+- Preocupações: ${input.preocupacoes}
 `;
 
   const promptText = `
-Por favor, realize a análise completa do documento conforme as instruções do sistema.
-Considere as informações de multas (${input.multa}), prazos (${input.prazo}) e garantias (${input.garantia}) informadas pelo usuário como pontos de partida para a conferência.
+Realize a análise do documento anexo. O relatório deve seguir RIGOROSAMENTE esta estrutura Markdown:
 
-Retorne EXCLUSIVAMENTE o relatório no formato Markdown estruturado:
 # RELATÓRIO EXECUTIVO
-## Identificação do Documento
-## Resumo Executivo
-## Score Numérico (0-100)
-## Classificação Qualitativa
-## Top 5 Riscos Identificados
-## Exposição Financeira Estimada (Máxima e Provável)
-## Recomendações Estratégicas Objetivas
+
+## Ficha Resumo do Instrumento
+(Apresente os 9 pontos de extração obrigatória aqui em formato de lista estruturada "Campo: Valor")
+
+## Score de Risco e Classificação
+- Score Numérico: (0-100)
+- Classificação: (Baixo/Médio/Alto/Crítico)
+
+## Resumo Analítico da IA
+(Um parágrafo de síntese sobre a saúde jurídica do documento)
+
+## Top 5 Riscos e Exposição Financeira
+(Identifique os riscos e estime a exposição máxima e provável)
 
 # ANEXO TÉCNICO
 ## Análise Estruturada por Cláusula
-## Fundamentação Legal Brasileira Aplicável
 ## Sugestões de Redação Alternativa
 ## Cláusulas Ausentes ou Fragilidades
 
@@ -49,7 +58,6 @@ Esta análise constitui apoio técnico automatizado e não substitui parecer jur
 
   const parts: any[] = [{ text: promptText }];
 
-  // If a file was uploaded, add it as a multimodal part
   if (input.arquivo) {
     parts.push({
       inlineData: {
@@ -66,8 +74,8 @@ Esta análise constitui apoio técnico automatizado e não substitui parecer jur
     contents: { parts },
     config: {
       systemInstruction,
-      temperature: 0.1, // High precision
-      thinkingConfig: { thinkingBudget: 8000 } // Extended thinking for complex legal docs
+      temperature: 0.1,
+      thinkingConfig: { thinkingBudget: 8000 }
     },
   });
 
