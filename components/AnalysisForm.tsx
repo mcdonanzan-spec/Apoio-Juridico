@@ -77,8 +77,9 @@ const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, isLoading }) => {
     });
   };
 
-  const inputClass = "w-full px-4 py-2.5 border border-slate-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all bg-slate-50/50";
-  const labelClass = "block text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5";
+  // Correção aqui: Adicionado text-slate-900 para garantir visibilidade do texto digitado
+  const inputClass = "w-full px-4 py-2.5 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all bg-white text-slate-900 placeholder:text-slate-400";
+  const labelClass = "block text-xs font-bold text-slate-600 uppercase tracking-wider mb-1.5";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8 bg-white p-6 md:p-10 rounded-2xl shadow-xl border border-slate-100">
@@ -155,7 +156,7 @@ const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, isLoading }) => {
                 className={`px-6 py-2 rounded-full text-xs font-bold transition-all border ${
                   formData.urgencia === level 
                     ? 'bg-blue-600 text-white border-blue-600 shadow-md' 
-                    : 'bg-white text-slate-500 border-slate-200 hover:border-blue-300'
+                    : 'bg-white text-slate-500 border-slate-300 hover:border-blue-300'
                 }`}
               >
                 {level}
@@ -178,7 +179,7 @@ const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, isLoading }) => {
             onDragLeave={() => setIsDragging(false)}
             onDrop={onDrop}
             className={`relative border-2 border-dashed rounded-2xl p-10 text-center transition-all ${
-              isDragging ? 'border-blue-500 bg-blue-50' : 'border-slate-200 hover:border-blue-400 bg-slate-50'
+              isDragging ? 'border-blue-500 bg-blue-50' : 'border-slate-300 hover:border-blue-400 bg-slate-50'
             }`}
           >
             <input 
@@ -193,7 +194,7 @@ const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, isLoading }) => {
               </div>
               <h4 className="text-slate-800 font-bold">Arraste o documento aqui</h4>
               <p className="text-slate-500 text-sm mt-1">Suporte para PDF e TXT (máx. 20MB)</p>
-              <button type="button" className="mt-4 px-4 py-2 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-700 hover:shadow-sm">Selecionar Arquivo</button>
+              <button type="button" className="mt-4 px-4 py-2 bg-white border border-slate-300 rounded-lg text-sm font-semibold text-slate-700 hover:shadow-sm">Selecionar Arquivo</button>
             </div>
           </div>
         ) : (
