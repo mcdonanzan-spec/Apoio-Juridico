@@ -15,158 +15,168 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
     const element = document.getElementById('report-content');
     if (!element) return;
     
-    // Ajuste fino para evitar cortes: largura de 210mm e escala controlada.
+    // Usamos uma largura fixa em pixels que se traduz bem para A4 (aprox 794px para 210mm a 96dpi)
+    // para garantir que o html2canvas não corte a lateral direita.
     const opt = {
-      margin: [5, 5, 5, 5],
-      filename: `Relatorio_Auditoria_Unita.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
+      margin: 0,
+      filename: `Ficha_Unita_${new Date().getTime()}.pdf`,
+      image: { type: 'jpeg', quality: 1.0 },
       html2canvas: { 
         scale: 2, 
         useCORS: true,
         letterRendering: true,
-        logging: false,
-        scrollY: 0,
-        windowWidth: 800 // Força uma largura estável para o canvas
+        width: 794, 
+        windowWidth: 794,
+        x: 0,
+        y: 0
       },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
       pagebreak: { mode: ['avoid-all', 'css', 'legacy'] }
     };
+    
     // @ts-ignore
     html2pdf().set(opt).from(element).save();
   };
 
   return (
-    <div className="max-w-4xl mx-auto my-10 animate-fade-in no-print">
+    <div className="max-w-5xl mx-auto my-10 animate-fade-in no-print">
       <div className="flex justify-end mb-6">
         <button 
           onClick={handleDownloadPDF} 
-          className="px-8 py-3 bg-[#f5511e] text-white rounded shadow-lg hover:bg-[#d84315] transition-all font-bold text-xs uppercase tracking-widest flex items-center gap-2"
+          className="px-10 py-4 bg-[#f5511e] text-white rounded shadow-xl hover:bg-[#d84315] transition-all font-black text-xs uppercase tracking-widest flex items-center gap-3"
         >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-          Exportar PDF Corporativo
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"></path></svg>
+          Exportar PDF Profissional
         </button>
       </div>
 
+      {/* Container Principal do PDF - Layout Fixo para evitar cortes */}
       <div 
         id="report-content" 
-        className="bg-white relative overflow-visible box-border shadow-sm border border-slate-100" 
-        style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', padding: '0' }}
+        className="bg-white relative overflow-hidden box-border" 
+        style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', fontFamily: "'Inter', sans-serif" }}
       >
-        {/* Faixa Superior */}
+        {/* Faixa Superior fixa na cor Unità */}
         <div className="h-4 bg-[#f5511e] w-full"></div>
         
-        {/* Cabeçalho Papel Timbrado */}
-        <div className="px-14 py-12 flex justify-between items-start">
+        {/* Header Corporativo */}
+        <div className="px-12 pt-10 pb-6 flex justify-between items-start border-b border-slate-50">
           <div>
-            <h1 className="text-4xl font-black text-slate-800 tracking-tighter leading-none">unit<span className="text-[#f5511e]">à</span></h1>
-            <p className="text-[10px] font-black text-slate-400 tracking-[0.4em] uppercase mt-1">Engenharia</p>
+            <h1 className="text-[42px] font-black text-slate-800 tracking-tighter leading-none m-0">unit<span className="text-[#f5511e]">à</span></h1>
+            <p className="text-[10px] font-black text-slate-400 tracking-[0.5em] uppercase m-0 mt-1">Engenharia</p>
           </div>
           
-          <div className="text-right text-[10px] text-slate-400 font-medium leading-relaxed">
-            <p>contato@unitaengenharia.com.br</p>
-            <p>www.unitaengenharia.com.br</p>
-            <p>Rua Peixoto Gomide, 996 - São Paulo</p>
-            <p className="text-slate-800 font-bold mt-2 uppercase tracking-tight">DATA DE EMISSÃO: {new Date().toLocaleDateString('pt-BR')}</p>
+          <div className="text-right text-[10px] text-slate-400 font-bold leading-relaxed space-y-0.5">
+            <p className="m-0">contato@unitaengenharia.com.br</p>
+            <p className="m-0">www.unitaengenharia.com.br</p>
+            <p className="m-0">Rua Peixoto Gomide, 996 - Jd. Paulista</p>
+            <p className="m-0 text-slate-800 uppercase tracking-tighter mt-2">EMISSÃO: {new Date().toLocaleDateString('pt-BR')}</p>
           </div>
         </div>
 
-        <div className="px-14 pb-20">
+        {/* Conteúdo do Relatório */}
+        <div className="px-12 py-8">
           <div className="border-b-2 border-slate-900 mb-8 pb-1">
-            <h2 className="text-[13px] font-black text-slate-800 uppercase tracking-widest">Ficha Resumo de Pré-Auditoria de Contrato</h2>
+            <h2 className="text-[14px] font-black text-slate-900 uppercase tracking-widest m-0">Ficha de Prateleira - Resumo de Pré-Auditoria</h2>
           </div>
 
-          <div className="space-y-0.5">
+          <div className="space-y-0 text-slate-800">
             {report.split('\n').map((line, idx) => {
               const trimmedLine = line.trim();
-              if (!trimmedLine) return <div key={idx} className="h-4"></div>;
+              if (!trimmedLine) return <div key={idx} className="h-3"></div>;
 
               if (trimmedLine.startsWith('# ')) return null;
 
-              // Seções (Azul Unità / Slate)
+              // Títulos de Seção
               if (trimmedLine.startsWith('## ')) {
                 return (
-                  <div key={idx} className="bg-slate-50 border-l-4 border-slate-900 px-4 py-2.5 my-8">
-                    <h3 className="text-[11px] font-black text-slate-800 uppercase tracking-widest leading-none">{trimmedLine.replace('## ', '')}</h3>
+                  <div key={idx} className="bg-slate-100 border-l-4 border-slate-900 px-4 py-2 my-6 page-break-avoid">
+                    <h3 className="text-[11px] font-black text-slate-900 uppercase tracking-[0.2em] m-0">{trimmedLine.replace('## ', '')}</h3>
                   </div>
                 );
               }
 
-              // Dados da Ficha (Grid Limpo)
+              // Dados da Ficha (Grid de 12 colunas para controle fino)
               if (trimmedLine.startsWith('- **') && trimmedLine.includes('**: ')) {
                 const [label, value] = trimmedLine.replace('- **', '').split('**: ');
                 return (
-                  <div key={idx} className="grid grid-cols-12 border-b border-slate-100 py-3 items-start gap-4">
-                    <span className="col-span-4 text-[9px] font-black text-slate-400 uppercase pt-1 tracking-tight">{label}</span>
-                    <span className="col-span-8 text-[12px] text-slate-800 font-bold leading-snug">{value}</span>
-                  </div>
-                );
-              }
-
-              // Badge de Exposição (Círculo lateral)
-              if (trimmedLine.includes('Índice de Exposição:')) {
-                const scoreStr = trimmedLine.match(/\d+/)?.[0] || '0';
-                const score = parseInt(scoreStr);
-                return (
-                  <div key={idx} className="flex justify-end my-10 pr-2">
-                    <div className={`w-32 h-32 rounded-full border-[6px] flex flex-col items-center justify-center bg-white shadow-xl ${getScoreColor(score).split(' ')[0]} ${getScoreColor(score).split(' ')[1]}`}>
-                      <span className="text-[8px] font-black uppercase text-slate-400 mb-0.5 tracking-tighter">Grau de Exposição</span>
-                      <span className="text-4xl font-black leading-none">{score}</span>
-                      <span className="text-[8px] font-bold uppercase tracking-[0.2em] mt-1">Pontos</span>
+                  <div key={idx} className="grid grid-cols-12 border-b border-slate-50 py-3 items-start gap-4 page-break-avoid">
+                    <div className="col-span-4">
+                      <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter pt-1 block">{label}</span>
+                    </div>
+                    <div className="col-span-8">
+                      <span className="text-[12px] text-slate-900 font-bold leading-[1.4] block">{value}</span>
                     </div>
                   </div>
                 );
               }
 
-              // Status Qualitativo
-              if (trimmedLine.includes('Classificação:')) {
-                const value = trimmedLine.split(': ')[1].replace(/\*/g, '');
+              // Badge de Score (Apenas o círculo, sem rodapé absoluto)
+              if (trimmedLine.includes('Índice de Exposição:')) {
+                const score = parseInt(trimmedLine.match(/\d+/)?.[0] || '0');
                 return (
-                  <div key={idx} className="text-right pr-6 -mt-8 mb-12">
-                    <span className="text-[10px] font-black uppercase text-slate-300 mr-2">Status do Instrumento:</span>
-                    <span className="text-[12px] font-black text-slate-700 uppercase tracking-widest border-b-2 border-slate-800 pb-1">{value}</span>
+                  <div key={idx} className="flex justify-end my-12 pr-4 page-break-avoid">
+                    <div className={`w-36 h-36 rounded-full border-[8px] flex flex-col items-center justify-center bg-white shadow-2xl ${getScoreColor(score).split(' ')[0]} ${getScoreColor(score).split(' ')[1]}`}>
+                      <span className="text-[10px] font-black uppercase text-slate-400 mb-1 tracking-tighter">Grau de Risco</span>
+                      <span className="text-5xl font-black leading-none">{score}</span>
+                      <span className="text-[9px] font-bold uppercase tracking-[0.3em] mt-1">Pontos</span>
+                    </div>
                   </div>
                 );
               }
 
-              // Bullet points (Lista técnica)
+              // Classificação Texto
+              if (trimmedLine.includes('Classificação:')) {
+                const val = trimmedLine.split(': ')[1].replace(/\*/g, '');
+                return (
+                  <div key={idx} className="text-right pr-6 -mt-8 mb-10 page-break-avoid">
+                    <span className="text-[10px] font-black uppercase text-slate-400 mr-2">Status da Análise:</span>
+                    <span className="text-[14px] font-black text-slate-900 uppercase tracking-widest">{val}</span>
+                  </div>
+                );
+              }
+
+              // Bullet points (Escopo/Penalidades)
               if (trimmedLine.startsWith('- ')) {
                 return (
-                  <div key={idx} className="flex gap-4 mb-3 ml-2 pr-6 items-start">
+                  <div key={idx} className="flex gap-4 mb-3 ml-2 pr-4 items-start page-break-avoid">
                     <div className="w-1.5 h-1.5 bg-[#f5511e] rounded-full mt-1.5 shrink-0"></div>
-                    <p className="text-[12px] text-slate-700 leading-relaxed font-medium">{trimmedLine.replace('- ', '').replace(/\*\*/g, '')}</p>
+                    <p className="text-[12px] text-slate-700 leading-relaxed font-semibold m-0">{trimmedLine.replace('- ', '').replace(/\*\*/g, '')}</p>
                   </div>
                 );
               }
 
-              // Aviso Legal (Box no Rodapé)
+              // Aviso Legal (Box com fundo)
               if (trimmedLine.includes('AVISO LEGAL') || trimmedLine.includes('não substitui parecer')) {
                 return (
-                  <div key={idx} className="mt-16 p-6 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-4 mr-6">
+                  <div key={idx} className="mt-16 p-6 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-4 mr-2 page-break-avoid">
                     <div className="w-10 h-10 bg-amber-200 rounded-full flex items-center justify-center shrink-0">
-                      <svg className="w-5 h-5 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+                      <svg className="w-6 h-6 text-amber-700" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
                     </div>
                     <div>
-                      <h4 className="text-[10px] font-black text-amber-800 uppercase mb-0.5 tracking-wider">Aviso de Pré-Auditoria Técnica</h4>
-                      <p className="text-[11px] text-amber-900 italic leading-relaxed font-medium">{trimmedLine.replace('# AVISO LEGAL', '').trim()}</p>
+                      <h4 className="text-[11px] font-black text-amber-800 uppercase mb-1 tracking-wider m-0">Aviso Legal de Pré-Auditoria</h4>
+                      <p className="text-[11px] text-amber-900 italic leading-relaxed font-medium m-0">{trimmedLine.replace('# AVISO LEGAL', '').trim()}</p>
                     </div>
                   </div>
                 );
               }
 
-              return <p key={idx} className="text-[12px] text-slate-600 leading-relaxed mb-4 pr-6">{trimmedLine.replace(/\*\*/g, '')}</p>;
+              return <p key={idx} className="text-[12px] text-slate-600 leading-relaxed mb-4 pr-4">{trimmedLine.replace(/\*\*/g, '')}</p>;
             })}
           </div>
         </div>
 
-        {/* Rodapé Papel Timbrado */}
-        <div className="absolute bottom-8 left-14 right-14 border-t border-slate-100 pt-4 flex justify-between items-center text-[8px] font-bold text-slate-300 uppercase tracking-[0.2em]">
-          <span>LegalOps Brasil • IA para Engenharia Civil</span>
-          <span className="text-slate-200">Relatório Confidencial • Unità Engenharia</span>
+        {/* Rodapé Fluído (Não absoluto para evitar overlap em múltiplas páginas) */}
+        <div className="mt-12 px-12 pb-10">
+          <div className="border-t border-slate-100 pt-6 flex justify-between items-center text-[9px] font-bold text-slate-300 uppercase tracking-[0.3em]">
+            <span>LegalOps Brasil • IA para Construção Civil</span>
+            <span className="text-slate-200">Relatório Corporativo • Unità Engenharia</span>
+          </div>
         </div>
       </div>
       
-      <div className="mt-8 text-center text-slate-400 text-[10px] pb-10">
-        Relatório estruturado com base no modelo de triagem de contratos da Unità Engenharia.
+      <div className="mt-10 text-center text-slate-400 text-[11px] font-medium no-print">
+        Documento gerado eletronicamente seguindo os critérios de compliance da Unità.
       </div>
     </div>
   );
