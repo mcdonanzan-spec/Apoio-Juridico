@@ -15,8 +15,6 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
     const element = document.getElementById('report-content');
     if (!element) return;
     
-    // Usamos uma largura fixa em pixels que se traduz bem para A4 (aprox 794px para 210mm a 96dpi)
-    // para garantir que o html2canvas não corte a lateral direita.
     const opt = {
       margin: 0,
       filename: `Ficha_Resumo_Unita_${new Date().getTime()}.pdf`,
@@ -50,16 +48,13 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
         </button>
       </div>
 
-      {/* Container Principal do PDF - Layout Fixo para evitar cortes */}
       <div 
         id="report-content" 
         className="bg-white relative overflow-hidden box-border" 
         style={{ width: '210mm', minHeight: '297mm', margin: '0 auto', fontFamily: "'Inter', sans-serif" }}
       >
-        {/* Faixa Superior fixa na cor Unità */}
         <div className="h-4 bg-[#f5511e] w-full"></div>
         
-        {/* Header Corporativo */}
         <div className="px-12 pt-10 pb-6 flex justify-between items-start border-b border-slate-50">
           <div>
             <h1 className="text-[42px] font-black text-slate-800 tracking-tighter leading-none m-0">unit<span className="text-[#f5511e]">à</span></h1>
@@ -74,7 +69,6 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
           </div>
         </div>
 
-        {/* Conteúdo do Relatório */}
         <div className="px-12 py-8">
           <div className="border-b-2 border-slate-900 mb-8 pb-1">
             <h2 className="text-[14px] font-black text-slate-900 uppercase tracking-widest m-0">FICHA RESUMO DO CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h2>
@@ -85,9 +79,15 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
               const trimmedLine = line.trim();
               if (!trimmedLine) return <div key={idx} className="h-3"></div>;
 
+              // Ignora títulos de primeiro nível (já incluídos no layout fixo) 
+              // e textos introdutórios conversacionais
               if (trimmedLine.startsWith('# ')) return null;
+              if (trimmedLine.toLowerCase().startsWith('aqui está') || 
+                  trimmedLine.toLowerCase().startsWith('realizada conforme') ||
+                  trimmedLine.toLowerCase().startsWith('segue a análise')) {
+                return null;
+              }
 
-              // Títulos de Seção
               if (trimmedLine.startsWith('## ')) {
                 return (
                   <div key={idx} className="bg-slate-100 border-l-4 border-slate-900 px-4 py-2 my-6 page-break-avoid">
@@ -96,7 +96,6 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
                 );
               }
 
-              // Dados da Ficha (Grid de 12 colunas para controle fino)
               if (trimmedLine.startsWith('- **') && trimmedLine.includes('**: ')) {
                 const [label, value] = trimmedLine.replace('- **', '').split('**: ');
                 return (
@@ -111,7 +110,6 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
                 );
               }
 
-              // Badge de Score (Apenas o círculo, sem rodapé absoluto)
               if (trimmedLine.includes('Índice de Exposição:')) {
                 const score = parseInt(trimmedLine.match(/\d+/)?.[0] || '0');
                 return (
@@ -125,7 +123,6 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
                 );
               }
 
-              // Classificação Texto
               if (trimmedLine.includes('Classificação:')) {
                 const val = trimmedLine.split(': ')[1].replace(/\*/g, '');
                 return (
@@ -136,7 +133,6 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
                 );
               }
 
-              // Bullet points (Escopo/Penalidades)
               if (trimmedLine.startsWith('- ')) {
                 return (
                   <div key={idx} className="flex gap-4 mb-3 ml-2 pr-4 items-start page-break-avoid">
@@ -146,7 +142,6 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
                 );
               }
 
-              // Aviso Legal (Box com fundo)
               if (trimmedLine.includes('AVISO LEGAL') || trimmedLine.includes('não substitui parecer')) {
                 return (
                   <div key={idx} className="mt-16 p-6 bg-amber-50 border border-amber-200 rounded-lg flex items-start gap-4 mr-2 page-break-avoid">
@@ -166,7 +161,6 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
           </div>
         </div>
 
-        {/* Rodapé Fluído (Não absoluto para evitar overlap em múltiplas páginas) */}
         <div className="mt-12 px-12 pb-10">
           <div className="border-t border-slate-100 pt-6 flex justify-between items-center text-[9px] font-bold text-slate-300 uppercase tracking-[0.3em]">
             <span>LegalOps Brasil • IA para Construção Civil</span>

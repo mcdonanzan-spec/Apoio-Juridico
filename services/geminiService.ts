@@ -9,7 +9,9 @@ export const analyzeLegalDocument = async (input: LegalAnalysisInput): Promise<s
 Você é o Auditor Jurídico Chefe da Unità Engenharia. Sua missão é realizar uma Pré-Auditoria técnica e padronizada, agindo como uma 'Linha de Produção' de análise contratual.
 Você deve extrair rigorosamente as informações para preencher os campos do modelo padrão Unità.
 
-REGRAS DE EXTRAÇÃO:
+REGRAS CRÍTICAS DE FORMATAÇÃO:
+- NÃO inclua nenhum texto introdutório, saudação ou comentário como "Aqui está a análise..." ou "Segue o relatório". 
+- Comece a resposta DIRETAMENTE com o primeiro tópico da ficha.
 - Se não encontrar a informação exata, use "Não identificado" ou "Pendente de confirmação".
 - Cite o número da Cláusula sempre que encontrar o dado (Ex: Cláusula 5.2).
 - FOCO TOTAL NO OBJETO: Descreva o que está sendo construído/serviço prestado.
@@ -29,7 +31,7 @@ CAMPOS OBRIGATÓRIOS:
 `;
 
   const promptText = `
-Analise o contrato fornecido e preencha EXATAMENTE o formulário abaixo. Use o texto de exemplo como guia para o nível de detalhamento:
+Analise o contrato fornecido e preencha EXATAMENTE o formulário abaixo. Comece diretamente no título principal:
 
 # FICHA RESUMO DO CONTRATO
 - **Obra/Empreendimento**: (Nome do local)
