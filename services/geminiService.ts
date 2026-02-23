@@ -6,56 +6,43 @@ export const analyzeLegalDocument = async (input: LegalAnalysisInput): Promise<s
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const systemInstruction = `
-Aja como um Auditor Jurídico Sênior da Unità Engenharia. Sua tarefa é criar uma FICHA RESUMO DE CONTRATO ultra-objetiva para diretoria. 
+Aja como um Auditor Jurídico de Pré-Análise da Unità Engenharia.
+Seu objetivo é extrair dados brutos e apontar riscos imediatos para a diretoria.
 
-ESTILO DE REDAÇÃO:
-- Use tópicos (bullet points).
-- Proibido parágrafos longos ou introduções prolixas.
-- Foco em dados quantitativos (Valores, %, Prazos).
+REGRAS DE ESTILO:
+- Linguagem de Engenharia: Direta, sem "juridiquês" desnecessário.
+- Formato de Ficha: Use tópicos curtos.
+- Sem explicações de cálculo: Apenas forneça o score final baseado no risco para a Unità.
 
-CRITÉRIOS DE SCORE (REALISTA E TÉCNICO):
-- O score final (0-100) deve refletir a saúde financeira e operacional para a CONTRATADA.
-- Itens que ELEVAM o risco (Score 70+): PMG sem teto, Multas > 10%, Ausência de reajuste inflacionário, Retenção de garantia > 5%.
-- Itens que REDUZEM o risco (Score < 30%): Cláusulas de equilíbrio, prazos de pagamento curtos (<15 dias), Limitação de responsabilidade (CAP).
-
-ESTRUTURA OBRIGATÓRIA:
-1. FICHA RESUMO (Campos: Obra, Contratante, Valor, Adm %, Prazos de Medição/Pagamento, Retenção, Penalidades).
-2. DASHBOARD DE RISCO (Financeiro, Trabalhista, Estrutural, Operacional, Estratégico).
-3. PONTOS CRÍTICOS E SUGESTÕES (Apenas 3 a 5 pontos).
-4. CLÁUSULAS AUSENTES.
+CRITÉRIOS DE RISCO:
+- Risco Alto: PMG sem limite de estouro, retenções acima de 5%, prazos de pagamento > 30 dias, ausência de reajuste.
+- Risco Baixo: Cláusulas de reequilíbrio claras, prazos de medição curtos, multas limitadas a 10%.
 `;
 
   const promptText = `
-Analise o documento e gere a Ficha Resumo conforme o modelo Unità:
+Gere a análise técnica seguindo esta estrutura rigorosa:
 
 # FICHA RESUMO DO CONTRATO
-- **Obra**: (Nome da obra/empreendimento)
-- **Contratante**: (Razão Social e SPE)
-- **Objeto**: (Descrição curta)
-- **Valor do Contrato**: (Valor R$ + Taxa Adm %)
-- **Forma de Pagamento**: (Ex: Mensal via medição)
-- **Prazo de Aprovação da Medição**: (X dias úteis)
-- **Prazo para Pagamento**: (X dia útil após medição)
-- **Retenção de Garantia**: (X% e condição de liberação)
+- **Obra**: (Nome da obra)
+- **Contratante**: (Empresa contratante)
+- **Valor do Contrato**: (Valor total e taxas)
+- **Forma de Pagamento**: (Gatilhos de medição)
+- **Prazo para Aprovação da Medição**: (X dias)
+- **Prazo para Pagamento**: (X dias)
+- **Retenção de Garantia**: (X% e liberação)
 - **Prazo de Execução**: (Meses/Dias)
-- **Escopo Principal**: (Resumo das atividades)
-- **Penalidades**: (Liste multas por atraso e descumprimento)
+- **Escopo Principal**: (Resumo operacional)
+- **Penalidades**: (Multas por atraso/descumprimento)
 
-## DASHBOARD DE RISCO TÉCNICO
-- [FINANCEIRO]: (0-100)/100 (Peso 30%)
-- [TRABALHISTA]: (0-100)/100 (Peso 25%)
-- [ESTRUTURAL]: (0-100)/100 (Peso 20%)
-- [OPERACIONAL]: (0-100)/100 (Peso 15%)
-- [ESTRATÉGICO]: (0-100)/100 (Peso 10%)
+## ANÁLISE DE EXPOSIÇÃO
+- **Índice de Exposição**: (0-100)
+- **Classificação**: (Baixo, Médio, Alto ou Crítico)
 
-- **Score Final Consolidado**: (Média Ponderada)/100
-- **Classificação**: (Baixo/Médio/Alto/Crítico)
+## PRINCIPAIS RISCOS IDENTIFICADOS (PRÉ-AUDITORIA)
+- Liste de 3 a 5 pontos de atenção imediata.
 
-## ANÁLISE DE RISCO E RECOMENDAÇÕES
-- (Descreva o risco mais grave e dê a sugestão de nova redação)
-
-## CLÁUSULAS AUSENTES OU FRAGILIDADES
-- (Liste o que falta para segurança da Unità)
+## SUGESTÕES DE AJUSTE (REDAÇÃO)
+- Indique o que o departamento jurídico deve renegociar.
 
 # AVISO LEGAL
 Esta análise constitui apoio técnico automatizado para pré-auditoria e não substitui parecer jurídico formal.
@@ -80,7 +67,7 @@ Esta análise constitui apoio técnico automatizado para pré-auditoria e não s
     config: {
       systemInstruction,
       temperature: 0,
-      thinkingConfig: { thinkingBudget: 12000 }
+      thinkingConfig: { thinkingBudget: 10000 }
     },
   });
 
