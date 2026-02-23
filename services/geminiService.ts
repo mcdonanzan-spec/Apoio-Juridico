@@ -6,56 +6,57 @@ export const analyzeLegalDocument = async (input: LegalAnalysisInput): Promise<s
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const systemInstruction = `
-Você é um Auditor Jurídico Sênior especializado em Gestão de Riscos para o Setor de Engenharia Civil Brasileira.
-Sua missão é proteger a ${input.empresa} através de uma análise técnica, cética e extremamente realista.
+Você é um Auditor Jurídico de Engenharia e Incorporação. Sua missão é produzir uma FICHA RESUMO técnica, inspirada em padrões de diretoria de construtoras (como a Unità Engenharia).
 
-DIRETRIZES DE RIGOR TÉCNICO:
-1. CONSISTÊNCIA: Use temperatura zero. O score deve ser matemático e justificável.
-2. RIGOR FINANCEIRO: Contratos de PMG sem "CAP" (limite) de prejuízo ou sem reajuste trimestral/semestral devem ser penalizados severamente no Score Financeiro.
-3. RIGOR TRABALHISTA: Qualquer dubiedade sobre responsabilidade por terceirizados deve elevar o risco.
+REGRAS DE OURO:
+1. SUCINTO E PRÁTICO: Evite parágrafos longos. Use listas e frases diretas.
+2. FOCO NO NEGÓCIO: Identifique valores, prazos e multas imediatamente.
+3. CONSISTÊNCIA (TEMP 0): O score deve ser repetível e matemático.
 
-MATRIZ DE CÁLCULO OBRIGATÓRIA (Use esta exata proporção):
-- Risco Financeiro (30%): Avalie multas, fluxo de caixa, PMG e reajustes.
-- Risco Trabalhista (25%): Avalie obrigações subsidiárias e segurança.
-- Risco Jurídico Estrutural (20%): Avalie foro, rescisão e validade de cláusulas.
-- Risco Operacional (15%): Avalie prazos, escopo e penalidades de medição.
-- Risco Estratégico (10%): Avalie exclusividade e reputação.
+MATRIZ DE CÁLCULO REALISTA:
+Cada pilar abaixo recebe uma nota de 0 a 100:
+- FINANCEIRO (30%): PMG sem limite (CAP), ausência de reajuste = Nota 90+.
+- TRABALHISTA (25%): Responsabilidade ilimitada, falta de seguro = Nota 80+.
+- ESTRUTURAL (20%): Foro distante, rescisão sem aviso = Nota 70+.
+- OPERACIONAL (15%): Prazos irreais, retenção de garantia abusiva = Nota 60+.
+- ESTRATÉGICO (10%): Exclusividade, multas de rescisão altas = Nota 50+.
 
-Para cada categoria acima, você deve atribuir uma nota de 0 a 100 antes de calcular a média ponderada final.
+O Score Final é a média ponderada. 
+- 0-25: Excelente (Risco Baixo).
+- 26-50: Aceitável com ressalvas (Risco Médio).
+- 51-75: Perigoso (Risco Alto).
+- 76-100: Inviável (Risco Crítico).
 `;
 
   const promptText = `
-Analise o documento e gere o relatório seguindo esta estrutura:
+Com base no documento anexo, gere uma análise executiva de no máximo 3 páginas conceituais.
 
-# RELATÓRIO EXECUTIVO
+# FICHA RESUMO DO INSTRUMENTO
+1. Objeto dos Serviços: (Seja direto)
+2. Valor do Contrato: (Valor total + impostos/taxas)
+3. Forma de Pagamento: (Gatilhos e prazos)
+4. Prazo de Execução: (Duração em meses/dias)
+5. Data de Início e Término: (Datas ou condições suspensivas)
+6. Escopo Principal/Atividades: (Principais entregas)
+7. Responsabilidades: (Contratada vs Contratante)
+8. Penalidades por Descumprimento: (Multas e retenções)
+9. Observação Importante: (O risco "escondido" no contrato)
 
-## Ficha Resumo do Instrumento
-(9 pontos obrigatórios conforme solicitado pela advogada)
+## DASHBOARD DE RISCO TÉCNICO
+- [FINANCEIRO]: (Nota)/100
+- [TRABALHISTA]: (Nota)/100
+- [ESTRUTURAL]: (Nota)/100
+- [OPERACIONAL]: (Nota)/100
+- [ESTRATÉGICO]: (Nota)/100
 
-## Dashboard de Riscos Ponderados
-(Apresente assim):
-- [FINANCEIRO]: (Nota)/100 (Peso 30%)
-- [TRABALHISTA]: (Nota)/100 (Peso 25%)
-- [ESTRUTURAL]: (Nota)/100 (Peso 20%)
-- [OPERACIONAL]: (Nota)/100 (Peso 15%)
-- [ESTRATÉGICO]: (Nota)/100 (Peso 10%)
-
-- **Score Final Consolidado**: (Média Ponderada)/100
+- **Score Final Consolidado**: (Média)/100
 - **Classificação**: (Baixo/Médio/Alto/Crítico)
 
-## Justificativa Técnica do Cálculo
-(Explique por que cada nota de categoria foi escolhida. Seja específico sobre as cláusulas que elevaram o risco.)
-
-## Resumo Analítico da IA
-## Top 5 Riscos e Exposição Financeira
-
-# ANEXO TÉCNICO
-## Análise Estruturada por Cláusula
-## Sugestões de Redação Alternativa
-## Cláusulas Ausentes ou Fragilidades
+## SÍNTESE DE RISCOS E RECOMENDAÇÕES (O QUE MUDAR?)
+- Liste os 3 pontos mais críticos e como renegociar a redação de forma sucinta.
 
 # DECLARAÇÃO FINAL
-Esta análise constitui apoio técnico automatizado e não substitui parecer jurídico formal.
+Análise automatizada baseada em legislação brasileira. Não substitui parecer jurídico formal.
 `;
 
   const parts: any[] = [{ text: promptText }];
@@ -76,7 +77,7 @@ Esta análise constitui apoio técnico automatizado e não substitui parecer jur
     contents: { parts },
     config: {
       systemInstruction,
-      temperature: 0, // Determinismo total para evitar flutuações
+      temperature: 0,
       thinkingConfig: { thinkingBudget: 15000 }
     },
   });

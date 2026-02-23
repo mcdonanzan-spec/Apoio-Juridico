@@ -5,27 +5,27 @@ interface ReportDisplayProps { report: string; }
 
 const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
   const getScoreColor = (score: number) => {
-    if (score <= 25) return 'bg-green-500';
-    if (score <= 50) return 'bg-yellow-500';
+    if (score <= 25) return 'bg-emerald-500';
+    if (score <= 50) return 'bg-amber-500';
     if (score <= 75) return 'bg-orange-500';
-    return 'bg-red-500';
+    return 'bg-rose-600';
   };
 
-  const getScoreBg = (score: number) => {
-    if (score <= 25) return 'bg-green-50 border-green-200 text-green-700';
-    if (score <= 50) return 'bg-yellow-50 border-yellow-200 text-yellow-700';
-    if (score <= 75) return 'bg-orange-50 border-orange-200 text-orange-700';
-    return 'bg-red-50 border-red-200 text-red-700';
+  const getScoreTextClass = (score: number) => {
+    if (score <= 25) return 'text-emerald-700 bg-emerald-50 border-emerald-200';
+    if (score <= 50) return 'text-amber-700 bg-amber-50 border-amber-200';
+    if (score <= 75) return 'text-orange-700 bg-orange-50 border-orange-200';
+    return 'text-rose-700 bg-rose-50 border-rose-200';
   };
 
   const handleDownloadPDF = () => {
     const element = document.getElementById('report-content');
     if (!element) return;
     const opt = {
-      margin: [10, 10, 10, 10],
-      filename: `Relatorio_Tecnico_LegalOps_${new Date().getTime()}.pdf`,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true },
+      margin: [10, 10],
+      filename: `Ficha_Resumo_Auditoria.pdf`,
+      image: { type: 'jpeg', quality: 1 },
+      html2canvas: { scale: 3, useCORS: true, letterRendering: true },
       jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
     };
     // @ts-ignore
@@ -33,142 +33,118 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
   };
 
   return (
-    <div className="max-w-5xl mx-auto my-10 animate-fade-in">
+    <div className="max-w-4xl mx-auto my-10 animate-fade-in">
       <div className="flex justify-end mb-6 no-print">
-        <button onClick={handleDownloadPDF} className="px-6 py-3 bg-slate-900 text-white rounded-xl hover:bg-black transition-all flex items-center gap-2 shadow-xl font-bold text-sm">
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-          Baixar Relatório de Auditoria (PDF)
+        <button onClick={handleDownloadPDF} className="px-6 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-black transition-all flex items-center gap-2 shadow-lg font-bold text-sm">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+          Gerar PDF Executivo
         </button>
       </div>
 
-      <div id="report-content" className="bg-white p-8 md:p-16 rounded-3xl shadow-2xl border border-slate-100">
-        {/* Header Profissional */}
-        <div className="flex flex-col md:flex-row justify-between items-start border-b-4 border-slate-900 pb-8 mb-12">
+      <div id="report-content" className="bg-white p-12 md:p-16 rounded-sm shadow-sm border border-slate-200 min-h-[297mm]">
+        {/* Header Estilo Corporate */}
+        <div className="flex justify-between items-start border-b border-slate-300 pb-6 mb-10">
           <div>
-            <h1 className="text-5xl font-serif text-slate-900 mb-2">LegalOps Brasil</h1>
-            <p className="text-xs font-black tracking-[0.3em] text-blue-600 uppercase">Inteligência Jurídica Especializada</p>
+            <h1 className="text-3xl font-bold text-slate-900 tracking-tight">LegalOps Brasil</h1>
+            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">Auditoria Jurídica de Engenharia</p>
           </div>
-          <div className="mt-6 md:mt-0 text-right">
-            <div className="bg-slate-100 px-4 py-2 rounded-lg border border-slate-200 inline-block">
-              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Status da Auditoria</p>
-              <p className="text-xs font-mono font-bold text-slate-700">CONCLUÍDO EM {new Date().toLocaleDateString('pt-BR')}</p>
-            </div>
+          <div className="text-right">
+            <p className="text-[9px] font-black text-slate-400 uppercase mb-1">Data da Emissão</p>
+            <p className="text-xs font-bold text-slate-700">{new Date().toLocaleDateString('pt-BR')}</p>
           </div>
         </div>
 
-        <div className="prose prose-slate max-w-none">
+        <div className="prose prose-slate max-w-none prose-sm">
           {report.split('\n').map((line, idx) => {
             const trimmedLine = line.trim();
-            if (!trimmedLine && line !== '') return <div key={idx} className="h-4"></div>;
+            if (!trimmedLine && line !== '') return <div key={idx} className="h-2"></div>;
 
-            // Títulos
+            // Seções Principais
             if (trimmedLine.startsWith('# ')) {
-              return <h2 key={idx} className="text-3xl font-black text-slate-900 mt-16 mb-8 border-b-2 border-slate-100 pb-4 uppercase">{trimmedLine.replace('# ', '')}</h2>;
-            }
-
-            // Headers de Seção
-            if (trimmedLine.startsWith('## ')) {
-              const headerText = trimmedLine.replace('## ', '');
               return (
-                <div key={idx} className="mt-12 mb-6">
-                  <h3 className="text-xl font-black text-slate-800 flex items-center gap-3">
-                    <span className="w-2 h-8 bg-slate-900 rounded-full"></span>
-                    {headerText}
-                  </h3>
+                <div key={idx} className="bg-slate-900 text-white px-4 py-2 my-8 rounded-sm">
+                  <h2 className="text-sm font-black uppercase tracking-widest m-0">{trimmedLine.replace('# ', '')}</h2>
                 </div>
               );
             }
 
-            // Renderização do Dashboard de Riscos Ponderados
+            // Subseções
+            if (trimmedLine.startsWith('## ')) {
+              return (
+                <h3 key={idx} className="text-xs font-black uppercase tracking-wider text-slate-800 border-b border-slate-100 pb-2 mt-10 mb-4">
+                  {trimmedLine.replace('## ', '')}
+                </h3>
+              );
+            }
+
+            // Dashboard de Barras (Mais Sóbrio)
             if (trimmedLine.startsWith('- [') && trimmedLine.includes(']:')) {
               const match = trimmedLine.match(/\[(.*?)\]: (\d+)/);
               if (match) {
                 const category = match[1];
                 const score = parseInt(match[2]);
                 return (
-                  <div key={idx} className="mb-4">
-                    <div className="flex justify-between text-[10px] font-black text-slate-500 mb-1 uppercase tracking-wider">
-                      <span>{category}</span>
-                      <span>{score}/100</span>
-                    </div>
-                    <div className="w-full h-3 bg-slate-100 rounded-full overflow-hidden border border-slate-200 shadow-inner">
-                      <div 
-                        className={`h-full transition-all duration-1000 ${getScoreColor(score)}`}
-                        style={{ width: `${score}%` }}
-                      ></div>
+                  <div key={idx} className="mb-3 grid grid-cols-4 items-center gap-4">
+                    <span className="text-[9px] font-bold text-slate-500 uppercase">{category}</span>
+                    <div className="col-span-3 flex items-center gap-3">
+                      <div className="flex-1 h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                        <div className={`h-full ${getScoreColor(score)}`} style={{ width: `${score}%` }}></div>
+                      </div>
+                      <span className="text-[10px] font-mono font-bold text-slate-700 w-8">{score}%</span>
                     </div>
                   </div>
                 );
               }
             }
 
-            // Ficha Resumo
+            // Ficha Resumo (Estilo Tabela/Lista Limpa)
             if (trimmedLine.includes(': ') && (trimmedLine.match(/^[0-9]\./) || trimmedLine.startsWith('- '))) {
               const [label, ...valueParts] = trimmedLine.split(': ');
               const value = valueParts.join(': ');
               return (
-                <div key={idx} className="grid grid-cols-1 md:grid-cols-4 gap-4 py-4 border-b border-slate-50 hover:bg-slate-50/50 px-2 group">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter group-hover:text-blue-600 transition-colors">{label.replace(/^[0-9]\.\s*/, '').replace('- ', '')}</span>
-                  <span className="text-sm text-slate-800 md:col-span-3 font-semibold leading-relaxed">{value}</span>
+                <div key={idx} className="flex flex-col md:flex-row gap-2 py-3 border-b border-slate-50">
+                  <span className="w-full md:w-1/3 text-[10px] font-black text-slate-400 uppercase leading-snug">
+                    {label.replace(/^[0-9]\.\s*/, '').replace('- ', '').replace('**', '').replace('**', '')}
+                  </span>
+                  <span className="flex-1 text-[13px] text-slate-800 font-medium leading-relaxed">
+                    {value.replace(/\*\*/g, '')}
+                  </span>
                 </div>
               );
             }
 
-            // Score Final Gigante
+            // Score Consolidado
             if (trimmedLine.includes('Score Final Consolidado:')) {
               const score = parseInt(trimmedLine.match(/\d+/)?.[0] || '0');
               return (
-                <div key={idx} className="my-12 p-10 bg-slate-900 rounded-[2rem] text-white shadow-2xl relative overflow-hidden">
-                  <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2"></div>
-                  <div className="relative z-10 flex flex-col md:flex-row items-center gap-10">
-                    <div className={`w-40 h-40 rounded-3xl flex flex-col items-center justify-center border-4 shadow-2xl ${getScoreBg(score)}`}>
-                      <span className="text-6xl font-black">{score}</span>
-                      <span className="text-[10px] font-black uppercase tracking-widest">Score Real</span>
-                    </div>
-                    <div className="flex-1">
-                      <h4 className="text-2xl font-bold mb-2">Matriz de Risco Realista</h4>
-                      <p className="text-slate-400 text-sm leading-relaxed mb-4">
-                        Este valor é resultado da média ponderada de 5 pilares críticos. Números entre <strong>0 e 25</strong> indicam conformidade ideal. Scores acima de <strong>50</strong> exigem renegociação imediata de cláusulas financeiras e trabalhistas.
-                      </p>
-                      <div className="flex gap-2">
-                        {['Baixo', 'Médio', 'Alto', 'Crítico'].map((cat, i) => (
-                           <span key={cat} className={`text-[9px] px-3 py-1 rounded-full border font-bold uppercase tracking-tighter ${
-                             (i === 0 && score <= 25) || (i === 1 && score > 25 && score <= 50) || (i === 2 && score > 50 && score <= 75) || (i === 3 && score > 75)
-                             ? 'bg-white text-slate-900 border-white' : 'border-white/20 text-white/40'
-                           }`}>
-                             {cat}
-                           </span>
-                        ))}
-                      </div>
-                    </div>
+                <div key={idx} className="my-10 p-8 border-2 border-slate-900 rounded-sm flex items-center justify-between">
+                  <div className="flex-1">
+                    <h4 className="text-xs font-black uppercase text-slate-500 mb-1">Índice Geral de Risco</h4>
+                    <p className="text-[11px] text-slate-400 italic">Cálculo ponderado baseado na Matriz Unità (Financeiro, Trabalhista, Estrutural).</p>
+                  </div>
+                  <div className={`w-24 h-24 flex flex-col items-center justify-center border-4 rounded-full ${getScoreTextClass(score)}`}>
+                    <span className="text-3xl font-black">{score}</span>
+                    <span className="text-[8px] font-bold uppercase">Pontos</span>
                   </div>
                 </div>
               );
             }
 
-            // Estilização das Sugestões de Redação (Citações)
-            if (trimmedLine.startsWith('>')) {
+            // Footer / Disclaimer
+            if (trimmedLine.startsWith('DECLARAÇÃO FINAL') || trimmedLine.includes('Não substitui parecer')) {
               return (
-                <div key={idx} className="my-6 p-6 bg-blue-50 border-l-4 border-blue-600 rounded-r-xl italic text-slate-700 text-sm shadow-sm font-medium">
-                  {trimmedLine.replace('>', '').trim()}
+                <div key={idx} className="mt-12 pt-6 border-t border-slate-200">
+                  <p className="text-[10px] text-slate-400 italic leading-relaxed">{trimmedLine}</p>
                 </div>
               );
             }
 
-            // Aviso Legal
-            if (trimmedLine.startsWith('DECLARAÇÃO FINAL') || trimmedLine.includes('não substitui parecer jurídico formal')) {
-              return (
-                <div key={idx} className="mt-20 p-8 bg-amber-50 border border-amber-200 rounded-3xl flex items-start gap-6">
-                  <div className="bg-amber-100 p-3 rounded-2xl text-amber-700">
-                    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                  </div>
-                  <p className="text-xs text-amber-900 leading-loose font-medium italic">{trimmedLine}</p>
-                </div>
-              );
-            }
-
-            return <p key={idx} className="text-slate-700 leading-relaxed text-base mb-4">{trimmedLine}</p>;
+            return <p key={idx} className="text-slate-600 text-[13px] leading-relaxed mb-3">{trimmedLine.replace(/\*\*/g, '')}</p>;
           })}
+        </div>
+        
+        <div className="mt-16 pt-8 text-center border-t border-slate-100">
+          <p className="text-[8px] text-slate-300 font-bold uppercase tracking-widest">Documento Gerado por Inteligência Artificial - LegalOps Brasil</p>
         </div>
       </div>
     </div>
