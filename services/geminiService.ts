@@ -6,48 +6,51 @@ export const analyzeLegalDocument = async (input: LegalAnalysisInput): Promise<s
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const systemInstruction = `
-Aja como um Auditor Jurídico de Pré-Análise da Unità Engenharia.
-Seu objetivo é extrair dados brutos e apontar riscos imediatos para a diretoria de forma limpa.
+Você é o Auditor Jurídico Chefe da Unità Engenharia. Sua missão é realizar uma Pré-Auditoria técnica e padronizada.
+Você deve buscar no contrato as respostas para as perguntas fundamentais do modelo de Ficha Resumo da Unità.
 
-REGRAS DE FORMATAÇÃO PARA O LAYOUT:
-- Não use títulos de nível 1 (#). Use apenas nível 2 (##) para seções.
-- Mantenha as descrições dos campos da Ficha Resumo curtas.
-- Para "Principais Riscos", use uma lista simples com "- ".
-- O "Score Final" deve ser um número entre 0 e 100 sem texto adicional na mesma linha.
+DIRETRIZES DE EXTRAÇÃO:
+- Se uma informação não for encontrada, escreva "Não identificado no documento".
+- Cite a cláusula sempre que possível (Ex: Cláusula 5.2).
+- Mantenha o tom executivo: direto, técnico e focado em riscos financeiros/operacionais.
 
-CRITÉRIOS DE RISCO:
-- Risco Crítico/Alto (70-100): PMG sem teto, Multas abusivas, Retenções > 5%, Prazos de pagamento > 30 dias.
-- Risco Médio (30-70): Prazos de medição longos, falta de indexador de reajuste claro.
-- Risco Baixo (0-30): Contrato equilibrado com CAP de responsabilidade e reajuste mensal.
+MATRIZ DE SCORE (PARA O ÍNDICE DE EXPOSIÇÃO):
+- 0-30: Baixa Exposição (Contrato equilibrado).
+- 31-60: Média Exposição (Pontos de atenção moderados).
+- 61-85: Alta Exposição (Cláusulas abusivas ou falta de garantias).
+- 86-100: Exposição Crítica (Risco severo de prejuízo ou inadimplemento).
 `;
 
   const promptText = `
-Analise o documento e gere a Ficha Resumo Técnica para pré-auditoria:
+Analise o documento jurídico fornecido e preencha a FICHA RESUMO conforme o padrão Unità Engenharia abaixo:
 
 # FICHA RESUMO DO CONTRATO
-- **Obra**: (Nome curto da obra)
-- **Contratante**: (Razão Social)
-- **Valor do Contrato**: (Valor total e taxas)
-- **Forma de Pagamento**: (Condição principal)
-- **Prazo para Aprovação da Medição**: (Dias úteis)
-- **Prazo para Pagamento**: (Dias úteis)
-- **Retenção de Garantia**: (Valor % e condição)
-- **Prazo de Execução**: (Meses/Dias)
-- **Escopo Principal**: (Atividade em 1 frase)
-- **Penalidades**: (Resumo das multas principais)
+- **Objeto dos Serviços**: (Descreva a execução completa dos serviços, projetos e cronograma)
+- **Valor do Contrato**: (Valor total por extenso e numeral + Taxas de Administração/Adicionais)
+- **Forma de Pagamento**: (Gatilhos de medição, remuneração e cláusula correspondente)
+- **Prazo para Aprovação da Medição**: (Tempo máximo para o cliente aprovar)
+- **Prazo para Pagamento**: (Data/dia útil para o desembolso após aprovação)
+- **Documentação Necessária**: (NF, relatórios, certidões exigidas)
+- **Retenção de Garantia**: (% retido, finalidade e condição de liberação)
+- **Prazo de Execução**: (Duração total e tolerâncias)
+- **Data de Início / Previsão de Término**: (Datas específicas ou marcos iniciais)
 
-## ANÁLISE DE EXPOSIÇÃO
-- **Índice de Exposição**: (Apenas o número)
+## ESCOPO PRINCIPAL / ATIVIDADES CONTRATADAS
+(Liste as principais obrigações técnicas como execução, provisão de recursos, seguros e conformidade legal)
+
+## RESPONSABILIDADES ESPECÍFICAS
+(Foque em correção de vícios, prazos de garantia de 5 anos e obrigações de relatórios)
+
+## PENALIDADES POR DESCUMPRIMENTO
+(Liste multas por atraso, não conformidade técnica, auditorias de segurança e multas rescisórias)
+
+## ANÁLISE DE EXPOSIÇÃO E ADITIVOS
+- **Principais Alterações (Aditivos)**: (Se houver aditivo, liste mudanças em segurança ou rescisão)
+- **Índice de Exposição**: (0-100)
 - **Classificação**: (Baixo, Médio, Alto ou Crítico)
 
-## PRINCIPAIS RISCOS IDENTIFICADOS (PRÉ-AUDITORIA)
-- (Ponto de atenção 1)
-- (Ponto de atenção 2)
-- (Ponto de atenção 3)
-
-## SUGESTÕES DE AJUSTE (REDAÇÃO)
-- (Sugestão de alteração de cláusula 1)
-- (Sugestão de alteração de cláusula 2)
+## OBSERVAÇÕES IMPORTANTES (PRÉ-AUDITORIA)
+- (Destaque o ponto mais crítico que exige atenção imediata do jurídico)
 
 # AVISO LEGAL
 Esta análise constitui apoio técnico automatizado para pré-auditoria e não substitui parecer jurídico formal.
@@ -63,7 +66,7 @@ Esta análise constitui apoio técnico automatizado para pré-auditoria e não s
       }
     });
   } else if (input.documentoTexto) {
-    parts.push({ text: `CONTEÚDO DO DOCUMENTO:\n${input.documentoTexto}` });
+    parts.push({ text: `CONTEÚDO DO DOCUMENTO PARA ANÁLISE:\n${input.documentoTexto}` });
   }
 
   const response = await ai.models.generateContent({
@@ -72,7 +75,7 @@ Esta análise constitui apoio técnico automatizado para pré-auditoria e não s
     config: {
       systemInstruction,
       temperature: 0,
-      thinkingConfig: { thinkingBudget: 8000 }
+      thinkingConfig: { thinkingBudget: 12000 }
     },
   });
 
