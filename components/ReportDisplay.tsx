@@ -19,7 +19,7 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
     // para garantir que o html2canvas não corte a lateral direita.
     const opt = {
       margin: 0,
-      filename: `Ficha_Unita_${new Date().getTime()}.pdf`,
+      filename: `Ficha_Resumo_Unita_${new Date().getTime()}.pdf`,
       image: { type: 'jpeg', quality: 1.0 },
       html2canvas: { 
         scale: 2, 
@@ -77,7 +77,7 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report }) => {
         {/* Conteúdo do Relatório */}
         <div className="px-12 py-8">
           <div className="border-b-2 border-slate-900 mb-8 pb-1">
-            <h2 className="text-[14px] font-black text-slate-900 uppercase tracking-widest m-0">Ficha de Prateleira - Resumo de Pré-Auditoria</h2>
+            <h2 className="text-[14px] font-black text-slate-900 uppercase tracking-widest m-0">FICHA RESUMO DO CONTRATO DE PRESTAÇÃO DE SERVIÇOS</h2>
           </div>
 
           <div className="space-y-0 text-slate-800">
