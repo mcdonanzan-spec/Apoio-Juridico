@@ -6,57 +6,59 @@ export const analyzeLegalDocument = async (input: LegalAnalysisInput): Promise<s
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
   const systemInstruction = `
-Você é um Auditor Jurídico de Engenharia e Incorporação. Sua missão é produzir uma FICHA RESUMO técnica, inspirada em padrões de diretoria de construtoras (como a Unità Engenharia).
+Aja como um Auditor Jurídico Sênior da Unità Engenharia. Sua tarefa é criar uma FICHA RESUMO DE CONTRATO ultra-objetiva para diretoria. 
 
-REGRAS DE OURO:
-1. SUCINTO E PRÁTICO: Evite parágrafos longos. Use listas e frases diretas.
-2. FOCO NO NEGÓCIO: Identifique valores, prazos e multas imediatamente.
-3. CONSISTÊNCIA (TEMP 0): O score deve ser repetível e matemático.
+ESTILO DE REDAÇÃO:
+- Use tópicos (bullet points).
+- Proibido parágrafos longos ou introduções prolixas.
+- Foco em dados quantitativos (Valores, %, Prazos).
 
-MATRIZ DE CÁLCULO REALISTA:
-Cada pilar abaixo recebe uma nota de 0 a 100:
-- FINANCEIRO (30%): PMG sem limite (CAP), ausência de reajuste = Nota 90+.
-- TRABALHISTA (25%): Responsabilidade ilimitada, falta de seguro = Nota 80+.
-- ESTRUTURAL (20%): Foro distante, rescisão sem aviso = Nota 70+.
-- OPERACIONAL (15%): Prazos irreais, retenção de garantia abusiva = Nota 60+.
-- ESTRATÉGICO (10%): Exclusividade, multas de rescisão altas = Nota 50+.
+CRITÉRIOS DE SCORE (REALISTA E TÉCNICO):
+- O score final (0-100) deve refletir a saúde financeira e operacional para a CONTRATADA.
+- Itens que ELEVAM o risco (Score 70+): PMG sem teto, Multas > 10%, Ausência de reajuste inflacionário, Retenção de garantia > 5%.
+- Itens que REDUZEM o risco (Score < 30%): Cláusulas de equilíbrio, prazos de pagamento curtos (<15 dias), Limitação de responsabilidade (CAP).
 
-O Score Final é a média ponderada. 
-- 0-25: Excelente (Risco Baixo).
-- 26-50: Aceitável com ressalvas (Risco Médio).
-- 51-75: Perigoso (Risco Alto).
-- 76-100: Inviável (Risco Crítico).
+ESTRUTURA OBRIGATÓRIA:
+1. FICHA RESUMO (Campos: Obra, Contratante, Valor, Adm %, Prazos de Medição/Pagamento, Retenção, Penalidades).
+2. DASHBOARD DE RISCO (Financeiro, Trabalhista, Estrutural, Operacional, Estratégico).
+3. PONTOS CRÍTICOS E SUGESTÕES (Apenas 3 a 5 pontos).
+4. CLÁUSULAS AUSENTES.
 `;
 
   const promptText = `
-Com base no documento anexo, gere uma análise executiva de no máximo 3 páginas conceituais.
+Analise o documento e gere a Ficha Resumo conforme o modelo Unità:
 
-# FICHA RESUMO DO INSTRUMENTO
-1. Objeto dos Serviços: (Seja direto)
-2. Valor do Contrato: (Valor total + impostos/taxas)
-3. Forma de Pagamento: (Gatilhos e prazos)
-4. Prazo de Execução: (Duração em meses/dias)
-5. Data de Início e Término: (Datas ou condições suspensivas)
-6. Escopo Principal/Atividades: (Principais entregas)
-7. Responsabilidades: (Contratada vs Contratante)
-8. Penalidades por Descumprimento: (Multas e retenções)
-9. Observação Importante: (O risco "escondido" no contrato)
+# FICHA RESUMO DO CONTRATO
+- **Obra**: (Nome da obra/empreendimento)
+- **Contratante**: (Razão Social e SPE)
+- **Objeto**: (Descrição curta)
+- **Valor do Contrato**: (Valor R$ + Taxa Adm %)
+- **Forma de Pagamento**: (Ex: Mensal via medição)
+- **Prazo de Aprovação da Medição**: (X dias úteis)
+- **Prazo para Pagamento**: (X dia útil após medição)
+- **Retenção de Garantia**: (X% e condição de liberação)
+- **Prazo de Execução**: (Meses/Dias)
+- **Escopo Principal**: (Resumo das atividades)
+- **Penalidades**: (Liste multas por atraso e descumprimento)
 
 ## DASHBOARD DE RISCO TÉCNICO
-- [FINANCEIRO]: (Nota)/100
-- [TRABALHISTA]: (Nota)/100
-- [ESTRUTURAL]: (Nota)/100
-- [OPERACIONAL]: (Nota)/100
-- [ESTRATÉGICO]: (Nota)/100
+- [FINANCEIRO]: (0-100)/100 (Peso 30%)
+- [TRABALHISTA]: (0-100)/100 (Peso 25%)
+- [ESTRUTURAL]: (0-100)/100 (Peso 20%)
+- [OPERACIONAL]: (0-100)/100 (Peso 15%)
+- [ESTRATÉGICO]: (0-100)/100 (Peso 10%)
 
-- **Score Final Consolidado**: (Média)/100
+- **Score Final Consolidado**: (Média Ponderada)/100
 - **Classificação**: (Baixo/Médio/Alto/Crítico)
 
-## SÍNTESE DE RISCOS E RECOMENDAÇÕES (O QUE MUDAR?)
-- Liste os 3 pontos mais críticos e como renegociar a redação de forma sucinta.
+## ANÁLISE DE RISCO E RECOMENDAÇÕES
+- (Descreva o risco mais grave e dê a sugestão de nova redação)
 
-# DECLARAÇÃO FINAL
-Análise automatizada baseada em legislação brasileira. Não substitui parecer jurídico formal.
+## CLÁUSULAS AUSENTES OU FRAGILIDADES
+- (Liste o que falta para segurança da Unità)
+
+# AVISO LEGAL
+Esta análise constitui apoio técnico automatizado para pré-auditoria e não substitui parecer jurídico formal.
 `;
 
   const parts: any[] = [{ text: promptText }];
@@ -78,7 +80,7 @@ Análise automatizada baseada em legislação brasileira. Não substitui parecer
     config: {
       systemInstruction,
       temperature: 0,
-      thinkingConfig: { thinkingBudget: 15000 }
+      thinkingConfig: { thinkingBudget: 12000 }
     },
   });
 
