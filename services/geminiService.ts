@@ -7,42 +7,47 @@ export const analyzeLegalDocument = async (input: LegalAnalysisInput): Promise<s
   
   const systemInstruction = `
 Aja como um Auditor Jurídico de Pré-Análise da Unità Engenharia.
-Seu objetivo é extrair dados brutos e apontar riscos imediatos para a diretoria.
+Seu objetivo é extrair dados brutos e apontar riscos imediatos para a diretoria de forma limpa.
 
-REGRAS DE ESTILO:
-- Linguagem de Engenharia: Direta, sem "juridiquês" desnecessário.
-- Formato de Ficha: Use tópicos curtos.
-- Sem explicações de cálculo: Apenas forneça o score final baseado no risco para a Unità.
+REGRAS DE FORMATAÇÃO PARA O LAYOUT:
+- Não use títulos de nível 1 (#). Use apenas nível 2 (##) para seções.
+- Mantenha as descrições dos campos da Ficha Resumo curtas.
+- Para "Principais Riscos", use uma lista simples com "- ".
+- O "Score Final" deve ser um número entre 0 e 100 sem texto adicional na mesma linha.
 
 CRITÉRIOS DE RISCO:
-- Risco Alto: PMG sem limite de estouro, retenções acima de 5%, prazos de pagamento > 30 dias, ausência de reajuste.
-- Risco Baixo: Cláusulas de reequilíbrio claras, prazos de medição curtos, multas limitadas a 10%.
+- Risco Crítico/Alto (70-100): PMG sem teto, Multas abusivas, Retenções > 5%, Prazos de pagamento > 30 dias.
+- Risco Médio (30-70): Prazos de medição longos, falta de indexador de reajuste claro.
+- Risco Baixo (0-30): Contrato equilibrado com CAP de responsabilidade e reajuste mensal.
 `;
 
   const promptText = `
-Gere a análise técnica seguindo esta estrutura rigorosa:
+Analise o documento e gere a Ficha Resumo Técnica para pré-auditoria:
 
 # FICHA RESUMO DO CONTRATO
-- **Obra**: (Nome da obra)
-- **Contratante**: (Empresa contratante)
+- **Obra**: (Nome curto da obra)
+- **Contratante**: (Razão Social)
 - **Valor do Contrato**: (Valor total e taxas)
-- **Forma de Pagamento**: (Gatilhos de medição)
-- **Prazo para Aprovação da Medição**: (X dias)
-- **Prazo para Pagamento**: (X dias)
-- **Retenção de Garantia**: (X% e liberação)
+- **Forma de Pagamento**: (Condição principal)
+- **Prazo para Aprovação da Medição**: (Dias úteis)
+- **Prazo para Pagamento**: (Dias úteis)
+- **Retenção de Garantia**: (Valor % e condição)
 - **Prazo de Execução**: (Meses/Dias)
-- **Escopo Principal**: (Resumo operacional)
-- **Penalidades**: (Multas por atraso/descumprimento)
+- **Escopo Principal**: (Atividade em 1 frase)
+- **Penalidades**: (Resumo das multas principais)
 
 ## ANÁLISE DE EXPOSIÇÃO
-- **Índice de Exposição**: (0-100)
+- **Índice de Exposição**: (Apenas o número)
 - **Classificação**: (Baixo, Médio, Alto ou Crítico)
 
 ## PRINCIPAIS RISCOS IDENTIFICADOS (PRÉ-AUDITORIA)
-- Liste de 3 a 5 pontos de atenção imediata.
+- (Ponto de atenção 1)
+- (Ponto de atenção 2)
+- (Ponto de atenção 3)
 
 ## SUGESTÕES DE AJUSTE (REDAÇÃO)
-- Indique o que o departamento jurídico deve renegociar.
+- (Sugestão de alteração de cláusula 1)
+- (Sugestão de alteração de cláusula 2)
 
 # AVISO LEGAL
 Esta análise constitui apoio técnico automatizado para pré-auditoria e não substitui parecer jurídico formal.
@@ -67,7 +72,7 @@ Esta análise constitui apoio técnico automatizado para pré-auditoria e não s
     config: {
       systemInstruction,
       temperature: 0,
-      thinkingConfig: { thinkingBudget: 10000 }
+      thinkingConfig: { thinkingBudget: 8000 }
     },
   });
 
