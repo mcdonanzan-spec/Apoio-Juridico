@@ -83,3 +83,37 @@ export const sendChatQuestion = async (
   const data = await response.json();
   return data.answer || '';
 };
+
+export const refineLegalReport = async (
+  currentReport: StructuredAnalysisResult,
+  history: ChatMessage[],
+  instruction?: string
+): Promise<StructuredAnalysisResult> => {
+  const response = await fetch('/api/refine-report', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      currentReport,
+      history,
+      instruction,
+    }),
+  });
+
+  if (!response.ok) {
+    let errorDetail = 'Erro ao aprimorar parecer jurídico no servidor.';
+    try {
+      const errJson = await response.json();
+      if (errJson.error) {
+        errorDetail = errJson.details ? `${errJson.error}: ${errJson.details}` : errJson.error;
+      }
+    } catch {
+      // ignore
+    }
+    throw new Error(errorDetail);
+  }
+
+  const data: StructuredAnalysisResult = await response.json();
+  return data;
+};

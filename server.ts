@@ -365,6 +365,187 @@ ${(parsed.estrategiaNegocial || []).map((e: string) => `• ${e}`).join('\n')}`;
   }
 });
 
+// Endpoint: Refine/Update Official Report based on Conversation Alignments
+app.post('/api/refine-report', async (req, res) => {
+  try {
+    const { currentReport, history, instruction } = req.body;
+
+    if (!currentReport) {
+      return res.status(400).json({ error: 'Relatório atual não informado.' });
+    }
+
+    const ai = getGenAI();
+
+    const systemInstruction = `
+Você é um Advogado Empresarial Sênior e Auditor Contratual de Alto Nível no Direito Brasileiro.
+Sua missão agora é APRIMORAR e ATUALIZAR o Parecer Técnico-Jurídico existente com base nas discussões, decisões, direcionamentos e acordos negociados na CONSULTORIA INTERATIVA mantida com o cliente.
+
+DIRETRIZES FUNDAMENTAIS PARA A ATUALIZAÇÃO:
+1. Incorpore fielmente as vontades, concessões e direcionamentos do cliente (ex: novos prazos acordados, flexibilização ou endurecimento de multas, novas redações para cláusulas, novas garantias).
+2. Atualize as CLÁUSULAS AUDITADAS: adapte a 'redacaoSugerida' para refletir exatamente as minutas acordadas na conversa, e atualize o 'diagnostico' e 'grauRisco' correspondente.
+3. Recalcule o 'scoreRisco' (0 a 100) e a 'classificacaoRisco' (Baixo, Médio, Alto, Crítico), levando em conta se os riscos anteriores foram mitigados ou solucionados pelas novas cláusulas blindadas escolhidas pelo cliente.
+4. Atualize a 'sinteseExecutiva'/'resumoExecutivo' e a 'estrategiaNegocial', registrando o alinhamento estratégico final alcançado.
+5. Liste no campo 'ajustesRealizadosNaConversa' todos os ajustes e deliberações incorporados (em tópicos objetivos e formais).
+6. Mantenha os embasamentos legais pertinentes (Código Civil, CPC, STJ) e a seriedade técnica indispensável.
+`;
+
+    let promptContent = `PARECER JURÍDICO ATUAL (Versão ${currentReport.versaoParecer || 1}):
+Título: ${currentReport.titulo}
+Partes: ${currentReport.partesIdentificadas}
+Score Atual: ${currentReport.scoreRisco}/100 (${currentReport.classificacaoRisco})
+Resumo Executivo Atual: ${currentReport.resumoExecutivo}
+
+CLÁUSULAS ATUAIS:
+${JSON.stringify(currentReport.clausulas || [], null, 2)}
+
+PRINCIPAIS RISCOS ATUAIS:
+${JSON.stringify(currentReport.principaisRiscos || [], null, 2)}
+
+ESTRATÉGIA NEGOCIAL ATUAL:
+${JSON.stringify(currentReport.estrategiaNegocial || [], null, 2)}
+`;
+
+    if (Array.isArray(history) && history.length > 0) {
+      promptContent += `\nHISTÓRICO DA CONSULTORIA INTERATIVA COM O CLIENTE:\n`;
+      for (const msg of history) {
+        promptContent += `${msg.sender === 'user' ? 'Cliente' : 'Advogado'}: ${msg.text}\n`;
+      }
+    }
+
+    if (instruction) {
+      promptContent += `\nINSTRUÇÃO ESPECÍFICA DO CLIENTE PARA ESTA ATUALIZAÇÃO:\n${instruction}\n`;
+    }
+
+    promptContent += `\nCom base em tudo o que foi conversado e alinhado, gere o Parecer Jurídico APRIMORADO E ATUALIZADO em formato JSON estruturado:`;
+
+    const response = await callGeminiWithFallback(ai, {
+      contents: promptContent,
+      config: {
+        systemInstruction,
+        temperature: 0.2,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            titulo: { type: Type.STRING },
+            resumoExecutivo: { type: Type.STRING },
+            partesIdentificadas: { type: Type.STRING },
+            scoreRisco: { type: Type.INTEGER },
+            classificacaoRisco: {
+              type: Type.STRING,
+              description: 'Baixo, Médio, Alto ou Crítico',
+            },
+            principaisRiscos: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            fundamentacaoDestaque: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  norma: { type: Type.STRING },
+                  aplicacao: { type: Type.STRING },
+                },
+                required: ['norma', 'aplicacao'],
+              },
+            },
+            clausulas: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  numero: { type: Type.STRING },
+                  titulo: { type: Type.STRING },
+                  textoOriginal: { type: Type.STRING },
+                  grauRisco: {
+                    type: Type.STRING,
+                    description: 'Baixo, Médio, Alto ou Crítico',
+                  },
+                  diagnostico: { type: Type.STRING },
+                  fundamentacaoLegal: { type: Type.STRING },
+                  redacaoSugerida: { type: Type.STRING },
+                },
+                required: [
+                  'numero',
+                  'titulo',
+                  'grauRisco',
+                  'diagnostico',
+                  'fundamentacaoLegal',
+                  'redacaoSugerida',
+                ],
+              },
+            },
+            estrategiaNegocial: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            ajustesRealizadosNaConversa: {
+              type: Type.ARRAY,
+              items: { type: Type.STRING },
+            },
+            cruzamentoCorroborativo: { type: Type.STRING },
+            relatorioMarkdownCompleto: { type: Type.STRING },
+          },
+          required: [
+            'titulo',
+            'resumoExecutivo',
+            'partesIdentificadas',
+            'scoreRisco',
+            'classificacaoRisco',
+            'principaisRiscos',
+            'fundamentacaoDestaque',
+            'clausulas',
+            'estrategiaNegocial',
+          ],
+        },
+      },
+    });
+
+    const raw = response.text || '{}';
+    let refined: StructuredAnalysisResult = JSON.parse(raw);
+
+    // Preserve metadata & document arrays
+    refined.documentosCorroborativosAnalisados = currentReport.documentosCorroborativosAnalisados;
+    if (!refined.cruzamentoCorroborativo && currentReport.cruzamentoCorroborativo) {
+      refined.cruzamentoCorroborativo = currentReport.cruzamentoCorroborativo;
+    }
+    refined.versaoParecer = (currentReport.versaoParecer || 1) + 1;
+
+    // Synthesize markdown if needed
+    if (!refined.relatorioMarkdownCompleto) {
+      refined.relatorioMarkdownCompleto = `# ${refined.titulo || 'PARECER JURÍDICO CORPORATIVO (VERSÃO APRIMORADA)'} (v${refined.versaoParecer}.0)
+
+## 1. RESUMO EXECUTIVO & DIRETRIZES NEGOCIAIS
+${refined.resumoExecutivo}
+
+## 2. AVALIAÇÃO DE RISCO PÓS-CONSULTORIA
+**Score Calibrado:** ${refined.scoreRisco}/100 — **Classificação:** ${refined.classificacaoRisco}
+
+${refined.ajustesRealizadosNaConversa && refined.ajustesRealizadosNaConversa.length > 0 ? `## 3. AJUSTES E DECISÕES INCORPORADOS NA CONSULTORIA INTERATIVA\n${refined.ajustesRealizadosNaConversa.map((a) => `• ${a}`).join('\n')}\n` : ''}
+
+## 4. AUDITORIA DE CLÁUSULAS & MINUTAS BLINDADAS HOMOLOGADAS
+${(refined.clausulas || []).map((c) => `### ${c.numero} - ${c.titulo} (Risco: ${c.grauRisco})
+**Texto Original:** ${c.textoOriginal || 'Não informado'}
+**Diagnóstico:** ${c.diagnostico}
+**Fundamentação Legal:** ${c.fundamentacaoLegal}
+**Minuta Blindada Recomendada:**
+> ${c.redacaoSugerida}`).join('\n\n')}
+
+## 5. ESTRATÉGIA DE NEGOCIAÇÃO E AÇÃO
+${(refined.estrategiaNegocial || []).map((e) => `• ${e}`).join('\n')}`;
+    }
+
+    return res.json(refined);
+  } catch (error: any) {
+    console.error('Erro no refinamento do parecer:', error);
+    return res.status(500).json({
+      error: 'Falha ao aprimorar o parecer jurídico com base na conversa.',
+      details: error?.message || String(error),
+    });
+  }
+});
+
 // Endpoint: Interactive Follow-Up Chat with Corporate Lawyer
 app.post('/api/chat', async (req, res) => {
   try {
@@ -378,9 +559,13 @@ app.post('/api/chat', async (req, res) => {
 
     const systemInstruction = `
 Você é um Advogado Empresarial Sênior e Consultor Jurídico Corporativo brilhante no Direito Brasileiro.
-Você está prestando consultoria contínua para o cliente com base no documento, nos anexos corroborativos e na análise previamente realizada.
-Responda com autoridade técnica, precisão jurídica, pragmatismo empresarial e fundamentação na legislação brasileira (Código Civil, CPC, leis extravagantes e jurisprudência dos Tribunais Superiores).
-Se o cliente pedir minutas de cláusulas, notificações ou respostas a contrapartes, forneça o texto pronto e devidamente formatado.
+Você está prestando consultoria interativa contínua para o cliente com base no documento, nos anexos corroborativos e no parecer previamente gerado.
+
+SEU PAPEL PROATIVO DE CONSULTORIA:
+1. Responda com autoridade técnica, precisão jurídica, pragmatismo empresarial e fundamentação na legislação brasileira (Código Civil, CPC, leis extravagantes e jurisprudência dos Tribunais Superiores STJ/STF).
+2. Forneça minutas prontas, ajustes em cláusulas, simulações de cenários e respostas a contrapartes com texto claro e juridicamente blindado.
+3. Se o cliente concordar com uma redação ou instruir alterações no contrato (como prazos, penalidades ou garantias), esclareça os efeitos práticos e lembre-o de que ele pode sincronizar e atualizar o parecer oficial com o botão 'Aprimorar Parecer com a Conversa'.
+4. Seja cordial, direto, estratégico e encorajador, buscando sempre a melhor relação risco x benefício comercial para o cliente.
 `;
 
     let contextPrompt = `DADOS DO CASO/DOCUMENTO:\n${previousSummary || ''}\n\n`;

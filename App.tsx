@@ -114,7 +114,7 @@ const App: React.FC = () => {
             <AnalysisForm onSubmit={handleFormSubmit} isLoading={loading} />
           </div>
         ) : (
-          <ReportDisplay report={report} onNewAnalysis={resetAnalysis} />
+          <ReportDisplay report={report} onNewAnalysis={resetAnalysis} onUpdateReport={setReport} />
         )}
       </main>
 

@@ -64,6 +64,8 @@ export interface StructuredAnalysisResult {
   documentosCorroborativosAnalisados?: string[];
   cruzamentoCorroborativo?: string;
   relatorioMarkdownCompleto: string;
+  versaoParecer?: number;
+  ajustesRealizadosNaConversa?: string[];
 }
 
 export interface ChatMessage {
