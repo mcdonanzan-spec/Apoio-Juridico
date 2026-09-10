@@ -8,6 +8,7 @@ import {
   Copy,
   Check,
   Download,
+  Printer,
   MessageSquare,
   Send,
   BookOpen,
@@ -18,7 +19,10 @@ import {
   Briefcase,
   Paperclip,
   CheckCircle2,
-  Layers
+  Layers,
+  AlertTriangle,
+  UserCheck,
+  Building2
 } from 'lucide-react';
 
 interface ReportDisplayProps {
@@ -30,6 +34,7 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, onNewAnalysis }) 
   const [activeTab, setActiveTab] = useState<'parecer' | 'clausulas' | 'chat' | 'textoCompleto'>('parecer');
   const [copiedClauseIdx, setCopiedClauseIdx] = useState<number | null>(null);
   const [copiedAll, setCopiedAll] = useState(false);
+  const [isExportingPDF, setIsExportingPDF] = useState(false);
 
   // Chat follow-up state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -83,24 +88,70 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, onNewAnalysis }) 
     setTimeout(() => setCopiedAll(false), 2500);
   };
 
-  const handleDownloadPDF = () => {
-    const element = document.getElementById('report-print-container');
-    if (!element) return;
+  const handleDownloadPDF = async () => {
+    setIsExportingPDF(true);
+    try {
+      const source = document.getElementById('report-print-container');
+      if (!source) {
+        window.print();
+        return;
+      }
 
-    // @ts-ignore
-    if (typeof html2pdf !== 'undefined') {
+      // @ts-ignore
+      if (typeof html2pdf === 'undefined') {
+        window.print();
+        return;
+      }
+
+      // Create an active, styled clone for rendering to prevent 0px/hidden canvas issues
+      const renderClone = source.cloneNode(true) as HTMLElement;
+      renderClone.id = 'report-print-clone';
+      renderClone.classList.remove('hidden');
+      renderClone.style.display = 'block';
+      renderClone.style.visibility = 'visible';
+      renderClone.style.position = 'fixed';
+      renderClone.style.left = '0';
+      renderClone.style.top = '0';
+      renderClone.style.width = '800px';
+      renderClone.style.backgroundColor = '#ffffff';
+      renderClone.style.color = '#0f172a';
+      renderClone.style.zIndex = '99999';
+      renderClone.style.margin = '0';
+      renderClone.style.padding = '32px';
+      renderClone.style.boxSizing = 'border-box';
+      document.body.appendChild(renderClone);
+
+      // Brief delay to allow fonts and layout to settle
+      await new Promise((resolve) => setTimeout(resolve, 250));
+
+      const cleanTitle = (report.titulo || 'Parecer_Juridico')
+        .replace(/[^a-zA-Z0-9]/g, '_')
+        .slice(0, 30);
+
       const opt = {
-        margin: [12, 12, 12, 12],
-        filename: `Parecer_Juridico_Corporativo_${new Date().toISOString().slice(0, 10)}.pdf`,
+        margin: [10, 10, 10, 10],
+        filename: `Parecer_Juridico_${cleanTitle}_${new Date().toISOString().slice(0, 10)}.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, letterRendering: true },
+        html2canvas: {
+          scale: 2,
+          useCORS: true,
+          logging: false,
+          scrollY: 0,
+          scrollX: 0,
+        },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
       };
+
       // @ts-ignore
-      html2pdf().set(opt).from(element).save();
-    } else {
+      await html2pdf().set(opt).from(renderClone).save();
+
+      document.body.removeChild(renderClone);
+    } catch (err) {
+      console.error('Erro na exportação para PDF:', err);
       window.print();
+    } finally {
+      setIsExportingPDF(false);
     }
   };
 
@@ -154,6 +205,27 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, onNewAnalysis }) 
 
   return (
     <div className="space-y-6">
+      {/* Modal / Feedback de Geração de PDF */}
+      {isExportingPDF && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-[1000000] p-4 no-print">
+          <div className="bg-white rounded-2xl p-6 md:p-8 max-w-md w-full shadow-2xl text-center space-y-4 border border-slate-200">
+            <div className="w-14 h-14 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-600 flex items-center justify-center mx-auto">
+              <Download className="w-7 h-7 animate-bounce" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-900">Compilando Parecer Jurídico em PDF</h3>
+              <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+                Consolidando todas as abas: Diagnóstico Estratégico, Confronto Probatório, Auditoria de Cláusulas com Minutas Blindadas, Fundamentação Legal e Termo de Aprovação do Advogado...
+              </p>
+            </div>
+            <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-amber-600 h-1.5 rounded-full animate-pulse w-3/4 mx-auto"></div>
+            </div>
+            <p className="text-[11px] text-slate-400">O download iniciará automaticamente em alguns segundos.</p>
+          </div>
+        </div>
+      )}
+
       {/* Top Action Bar */}
       <div className="flex flex-wrap items-center justify-between gap-4 pb-2 border-b border-slate-200 no-print">
         <button
@@ -164,21 +236,33 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, onNewAnalysis }) 
           Nova Análise de Documento
         </button>
 
-        <div className="flex items-center gap-2.5">
+        <div className="flex flex-wrap items-center gap-2">
           <button
             onClick={handleCopyFullReport}
-            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition-colors shadow-sm"
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition-colors shadow-2xs"
+            title="Copiar parecer consolidado para a área de transferência"
           >
             {copiedAll ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
             {copiedAll ? 'Copiado!' : 'Copiar Parecer'}
           </button>
 
           <button
+            onClick={() => window.print()}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition-colors shadow-2xs"
+            title="Imprimir ou Salvar em PDF Vetorial de alta fidelidade pelo navegador"
+          >
+            <Printer className="w-4 h-4 text-slate-600" />
+            Imprimir / Salvar PDF
+          </button>
+
+          <button
             onClick={handleDownloadPDF}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-lg transition-colors shadow-sm"
+            disabled={isExportingPDF}
+            className="inline-flex items-center gap-1.5 px-4 py-2 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-lg transition-colors shadow-sm disabled:opacity-50"
+            title="Baixar arquivo .PDF completo compilado com todas as abas e cláusulas"
           >
             <Download className="w-4 h-4 text-amber-400" />
-            Exportar em PDF
+            {isExportingPDF ? 'Gerando PDF...' : 'Exportar em PDF'}
           </button>
         </div>
       </div>
@@ -656,102 +740,323 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, onNewAnalysis }) 
         </div>
       )}
 
-      {/* CONTAINER OCULTO DE IMPRESSÃO / PDF EXECUTIVO (A4) */}
+      {/* CONTAINER DE IMPRESSÃO / PDF EXECUTIVO (A4 COMPLETO COM TODAS AS ABAS) */}
       <div id="report-print-container" className="hidden print:block bg-white p-8 font-sans text-slate-900">
-        <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-end">
+        {/* Cabeçalho Oficial Timbrado */}
+        <div className="border-b-2 border-slate-900 pb-4 mb-6 flex justify-between items-end avoid-break">
           <div>
-            <h1 className="text-2xl font-serif font-bold tracking-tight text-slate-900">
-              LEGALOPS BRASIL
-            </h1>
-            <p className="text-xs text-slate-500 uppercase tracking-widest font-semibold">
-              Advocacia Empresarial & Consultoria Estratégica
+            <div className="flex items-center gap-2">
+              <span className="font-serif font-black text-2xl tracking-tight text-slate-950">
+                LEGALOPS BRASIL
+              </span>
+              <span className="text-[10px] px-2 py-0.5 bg-slate-900 text-white font-bold rounded uppercase">
+                Advocacia Empresarial
+              </span>
+            </div>
+            <p className="text-xs text-slate-600 font-semibold mt-1">
+              Consultoria Estratégica, Auditoria Contratual e Blindagem de Riscos Corporativos
             </p>
           </div>
-          <div className="text-right text-xs text-slate-500">
-            <p className="font-bold text-slate-800">PARECER TÉCNICO-JURÍDICO</p>
-            <p>Emissão: {new Date().toLocaleDateString('pt-BR')}</p>
+          <div className="text-right text-xs text-slate-600">
+            <p className="font-black text-sm text-slate-900 uppercase">PARECER TÉCNICO-JURÍDICO</p>
+            <p className="font-medium mt-0.5">Emissão: {new Date().toLocaleDateString('pt-BR')}</p>
+            <p className="text-[10px] text-slate-400 font-mono">DOC-{Date.now().toString().slice(-6)}</p>
           </div>
         </div>
 
+        {/* Tarja de Aviso de Responsabilidade Técnica */}
+        <div className="bg-amber-50/80 border border-amber-300/80 p-3 rounded-lg mb-6 avoid-break">
+          <p className="text-[11px] text-amber-950 font-bold uppercase tracking-wider mb-0.5">
+            Nota de Governança & Validação Profissional:
+          </p>
+          <p className="text-[11px] text-amber-900 leading-relaxed">
+            Este relatório constitui instrumento de apoio técnico-jurídico gerado para subsidiar a tomada de decisão corporativa. As recomendações, diagnósticos e minutas blindadas abaixo apresentados devem ser formalmente revisados, aprovados e chancelados pelo advogado responsável antes da subscrição definitiva com a contraparte.
+          </p>
+        </div>
+
         <div className="space-y-6 text-xs leading-relaxed">
-          <div>
-            <h2 className="text-base font-bold text-slate-900 mb-1">{report.titulo}</h2>
-            <p className="text-slate-600">
-              <strong>Partes & Objeto:</strong> {report.partesIdentificadas}
-            </p>
-            <p className="text-slate-600">
-              <strong>Classificação de Risco:</strong> {report.classificacaoRisco} (Score: {report.scoreRisco}/100)
+          {/* Identificação do Instrumento e Painel de Risco */}
+          <div className="bg-slate-50 p-4 rounded-xl border border-slate-200 avoid-break">
+            <h2 className="text-base font-bold text-slate-950 mb-2">{report.titulo}</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+              <div>
+                <p className="text-slate-600">
+                  <strong className="text-slate-900">Partes & Objeto:</strong> {report.partesIdentificadas}
+                </p>
+                <p className="text-slate-600 mt-1">
+                  <strong className="text-slate-900">Data de Análise:</strong> {new Date().toLocaleDateString('pt-BR')}
+                </p>
+              </div>
+              <div className="sm:text-right">
+                <p className="text-slate-600">
+                  <strong className="text-slate-900">Índice de Exposição de Risco:</strong>
+                </p>
+                <div className="inline-flex items-center gap-2 mt-1">
+                  <span className="text-base font-black text-slate-900">Score {report.scoreRisco}/100</span>
+                  <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-900 text-white">
+                    Risco {report.classificacaoRisco}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 1. Síntese Executiva & Diagnóstico Estratégico (Aba 1) */}
+          <div className="border-t border-slate-200 pt-4 avoid-break">
+            <h3 className="font-bold text-slate-950 text-sm uppercase tracking-wider mb-2 flex items-center gap-1.5">
+              1. Síntese Executiva & Diagnóstico Estratégico
+            </h3>
+            <p className="text-slate-800 text-xs md:text-sm leading-relaxed whitespace-pre-line text-justify">
+              {report.resumoExecutivo}
             </p>
           </div>
 
-          <div className="border-t border-slate-200 pt-4">
-            <h3 className="font-bold text-slate-900 uppercase tracking-wider mb-2">1. Resumo Executivo</h3>
-            <p className="text-slate-800">{report.resumoExecutivo}</p>
-          </div>
-
-          {/* Documentos Corroborativos na Impressão */}
-          {report.cruzamentoCorroborativo && (
-            <div className="border-t border-slate-200 pt-4">
-              <h3 className="font-bold text-slate-900 uppercase tracking-wider mb-2">
-                2. Confronto com Documentos Corroborativos
+          {/* 2. Confronto Probatório com Documentos Corroborativos (se houver) */}
+          {(report.cruzamentoCorroborativo || (report.documentosCorroborativosAnalisados && report.documentosCorroborativosAnalisados.length > 0)) && (
+            <div className="border-t border-slate-200 pt-4 avoid-break">
+              <h3 className="font-bold text-slate-950 text-sm uppercase tracking-wider mb-2">
+                2. Confronto Probatório com Documentos Corroborativos
               </h3>
-              <p className="text-slate-800">{report.cruzamentoCorroborativo}</p>
+              {report.documentosCorroborativosAnalisados && report.documentosCorroborativosAnalisados.length > 0 && (
+                <div className="mb-2">
+                  <span className="text-[11px] font-bold text-slate-600 block mb-1">
+                    Documentos e Evidências Confrontadas ({report.documentosCorroborativosAnalisados.length}):
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {report.documentosCorroborativosAnalisados.map((doc, idx) => (
+                      <span key={idx} className="px-2 py-0.5 bg-indigo-50 border border-indigo-200 text-indigo-950 rounded text-[11px] font-medium">
+                        {doc}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {report.cruzamentoCorroborativo && (
+                <div className="p-3.5 bg-indigo-50/50 border border-indigo-100 rounded-lg text-indigo-950 leading-relaxed text-xs">
+                  {report.cruzamentoCorroborativo}
+                </div>
+              )}
             </div>
           )}
 
+          {/* 3. Principais Riscos e Armadilhas Contratuais */}
           {report.principaisRiscos && report.principaisRiscos.length > 0 && (
-            <div className="border-t border-slate-200 pt-4">
-              <h3 className="font-bold text-slate-900 uppercase tracking-wider mb-2">3. Principais Armadilhas & Riscos</h3>
-              <ul className="list-disc pl-5 space-y-1 text-slate-800">
-                {report.principaisRiscos.map((r, i) => (
-                  <li key={i}>{r}</li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {report.clausulas && report.clausulas.length > 0 && (
-            <div className="border-t border-slate-200 pt-4">
-              <h3 className="font-bold text-slate-900 uppercase tracking-wider mb-2">4. Auditoria Cláusula a Cláusula</h3>
-              <div className="space-y-4">
-                {report.clausulas.map((c, i) => (
-                  <div key={i} className="border border-slate-200 p-3 rounded">
-                    <p className="font-bold text-slate-900">
-                      {c.numero} - {c.titulo} (Risco {c.grauRisco})
-                    </p>
-                    {c.textoOriginal && <p className="italic text-slate-600 my-1">"{c.textoOriginal}"</p>}
-                    <p className="text-slate-800 my-1">
-                      <strong>Diagnóstico:</strong> {c.diagnostico}
-                    </p>
-                    <p className="text-slate-700 my-1">
-                      <strong>Fundamentação:</strong> {c.fundamentacaoLegal}
-                    </p>
-                    <p className="text-emerald-900 bg-emerald-50 p-2 rounded mt-1 font-mono text-[10px]">
-                      <strong>Minuta Sugerida:</strong> {c.redacaoSugerida}
-                    </p>
+            <div className="border-t border-slate-200 pt-4 avoid-break">
+              <h3 className="font-bold text-slate-950 text-sm uppercase tracking-wider mb-2">
+                3. Principais Armadilhas & Riscos Jurídicos Mapeados
+              </h3>
+              <div className="grid grid-cols-1 gap-2">
+                {report.principaisRiscos.map((risco, idx) => (
+                  <div key={idx} className="flex items-start gap-2.5 p-2.5 bg-red-50/70 border border-red-200/80 rounded-lg text-xs text-slate-900">
+                    <span className="w-5 h-5 rounded-full bg-red-600 text-white font-bold flex items-center justify-center shrink-0 mt-0.5 text-[10px]">
+                      {idx + 1}
+                    </span>
+                    <span className="font-medium leading-relaxed">{risco}</span>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {report.estrategiaNegocial && report.estrategiaNegocial.length > 0 && (
-            <div className="border-t border-slate-200 pt-4">
-              <h3 className="font-bold text-slate-900 uppercase tracking-wider mb-2">5. Estratégia de Negociação</h3>
-              <ol className="list-decimal pl-5 space-y-1 text-slate-800">
-                {report.estrategiaNegocial.map((e, i) => (
-                  <li key={i}>{e}</li>
+          {/* 4. Embasamento Legal e Jurisprudência Aplicável (Aba 1) */}
+          {report.fundamentacaoDestaque && report.fundamentacaoDestaque.length > 0 && (
+            <div className="border-t border-slate-200 pt-4 avoid-break">
+              <h3 className="font-bold text-slate-950 text-sm uppercase tracking-wider mb-2">
+                4. Embasamento Legal e Jurisprudência Brasileira (Código Civil / STJ)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {report.fundamentacaoDestaque.map((item, idx) => (
+                  <div key={idx} className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+                    <span className="font-bold text-slate-900 text-xs block mb-1">
+                      {item.norma}
+                    </span>
+                    <p className="text-slate-700 text-xs leading-relaxed">{item.aplicacao}</p>
+                  </div>
                 ))}
-              </ol>
+              </div>
             </div>
           )}
 
-          <div className="border-t-2 border-slate-900 pt-6 mt-10 text-center text-[10px] text-slate-400">
-            <p className="font-bold text-slate-600 uppercase tracking-widest">
-              LegalOps Brasil • Consultoria Jurídica Corporativa de Alta Performance
+          {/* 5. Auditoria Cláusula a Cláusula & Minutas de Redação Blindada (Aba 2 Completa) */}
+          {report.clausulas && report.clausulas.length > 0 && (
+            <div className="border-t border-slate-200 pt-4">
+              <div className="flex justify-between items-center mb-3 avoid-break">
+                <h3 className="font-bold text-slate-950 text-sm uppercase tracking-wider">
+                  5. Auditoria Cláusula a Cláusula & Minutas de Redação Blindada
+                </h3>
+                <span className="text-[11px] font-bold text-slate-500">
+                  Total de {report.clausulas.length} cláusula(s) auditada(s)
+                </span>
+              </div>
+
+              <div className="space-y-4">
+                {report.clausulas.map((c, i) => (
+                  <div key={i} className="border border-slate-200 p-4 rounded-xl bg-white shadow-2xs avoid-break">
+                    {/* Header da Cláusula */}
+                    <div className="flex justify-between items-start gap-2 border-b border-slate-100 pb-2 mb-2.5">
+                      <div>
+                        <span className="font-bold text-slate-950 text-xs">
+                          {c.numero} — {c.titulo}
+                        </span>
+                      </div>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold border uppercase tracking-wider bg-slate-100 text-slate-800 border-slate-300">
+                        Risco {c.grauRisco}
+                      </span>
+                    </div>
+
+                    {/* Texto original identificado */}
+                    {c.textoOriginal && (
+                      <div className="p-2.5 bg-slate-50 rounded border border-slate-200 text-slate-700 italic text-[11px] mb-2 leading-relaxed">
+                        <strong className="not-italic text-slate-500 block text-[10px] uppercase font-bold mb-0.5">
+                          Redação Original Identificada no Contrato:
+                        </strong>
+                        "{c.textoOriginal}"
+                      </div>
+                    )}
+
+                    {/* Diagnóstico e Fundamentação */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs mb-2.5">
+                      <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
+                        <strong className="text-red-900 block text-[10px] uppercase font-bold mb-1">
+                          Diagnóstico do Vício / Risco Jurídico:
+                        </strong>
+                        <p className="text-slate-800 leading-relaxed font-medium">{c.diagnostico}</p>
+                      </div>
+                      <div className="p-2.5 bg-slate-50 rounded border border-slate-200">
+                        <strong className="text-slate-700 block text-[10px] uppercase font-bold mb-1">
+                          Fundamentação Legal Aplicável:
+                        </strong>
+                        <p className="text-slate-800 leading-relaxed font-medium">{c.fundamentacaoLegal}</p>
+                      </div>
+                    </div>
+
+                    {/* Minuta Blindada Sugerida */}
+                    {c.redacaoSugerida && (
+                      <div className="p-3 bg-emerald-50/70 border border-emerald-300/80 rounded-lg">
+                        <strong className="text-emerald-950 block text-[10px] uppercase font-bold mb-1">
+                          Minuta de Redação Blindada Recomendada (Contraproposta Negocial):
+                        </strong>
+                        <p className="text-slate-950 font-mono text-[11px] leading-relaxed whitespace-pre-line bg-white p-2.5 rounded border border-emerald-200">
+                          {c.redacaoSugerida}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 6. Estratégia de Negociação & Recomendações Práticas (Aba 1) */}
+          {report.estrategiaNegocial && report.estrategiaNegocial.length > 0 && (
+            <div className="border-t border-slate-200 pt-4 avoid-break">
+              <h3 className="font-bold text-slate-950 text-sm uppercase tracking-wider mb-2">
+                6. Estratégia de Negociação & Plano de Ação Recomendado
+              </h3>
+              <div className="space-y-2">
+                {report.estrategiaNegocial.map((passo, idx) => (
+                  <div key={idx} className="flex items-start gap-2.5 p-2.5 rounded-lg bg-slate-50 border border-slate-200 text-xs text-slate-800">
+                    <span className="w-5 h-5 rounded-full bg-slate-900 text-amber-400 font-bold flex items-center justify-center shrink-0 mt-0.5 text-[11px]">
+                      {idx + 1}
+                    </span>
+                    <span className="leading-relaxed font-medium">{passo}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 7. Consultoria Jurídica Complementar (Aba 3 - Se houver perguntas no chat) */}
+          {chatMessages && chatMessages.length > 0 && (
+            <div className="border-t border-slate-200 pt-4 avoid-break">
+              <h3 className="font-bold text-slate-950 text-sm uppercase tracking-wider mb-2">
+                7. Consultoria Jurídica Complementar & Dúvidas Esclarecidas
+              </h3>
+              <div className="space-y-2.5">
+                {chatMessages.map((msg, idx) => (
+                  <div
+                    key={idx}
+                    className={`p-3 rounded-lg border text-xs leading-relaxed ${
+                      msg.sender === 'user'
+                        ? 'bg-slate-100 border-slate-300 font-medium text-slate-900'
+                        : 'bg-amber-50/60 border-amber-200 text-slate-900'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-bold text-[11px] uppercase tracking-wider text-slate-700">
+                        {msg.sender === 'user' ? 'Dúvida Apresentada:' : 'Parecer do Advogado:'}
+                      </span>
+                      <span className="text-[10px] text-slate-400">{msg.timestamp}</span>
+                    </div>
+                    <p className="whitespace-pre-line">{msg.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* 8. Parecer Formal em Formato Textual (Aba 4) */}
+          {report.relatorioMarkdownCompleto && (
+            <div className="border-t border-slate-200 pt-4 avoid-break">
+              <h3 className="font-bold text-slate-950 text-sm uppercase tracking-wider mb-2">
+                8. Parecer Jurídico Formal Consolidado
+              </h3>
+              <div className="font-mono text-[11px] text-slate-800 bg-slate-50 p-4 rounded-lg border border-slate-200 whitespace-pre-wrap leading-relaxed">
+                {report.relatorioMarkdownCompleto}
+              </div>
+            </div>
+          )}
+
+          {/* 9. TERMO DE VALIDAÇÃO, CHANCELA E APROVAÇÃO DO ADVOGADO RESPONSÁVEL */}
+          <div className="border-2 border-slate-900 p-5 rounded-xl mt-8 bg-slate-50/50 avoid-break">
+            <h3 className="font-black text-slate-950 text-sm uppercase tracking-widest text-center border-b border-slate-300 pb-2 mb-4">
+              9. TERMO DE VALIDAÇÃO E APROVAÇÃO DO ADVOGADO RESPONSÁVEL
+            </h3>
+            <p className="text-xs text-slate-700 leading-relaxed mb-4 text-justify">
+              Declaro que examinei o teor das análises, diagnósticos de vulnerabilidades e minutas blindadas sugeridas neste parecer técnico-jurídico corporativo, manifestando a seguinte conclusão:
             </p>
-            <p className="mt-1">
-              Este relatório constitui apoio técnico e diagnóstico analítico com base no ordenamento jurídico brasileiro.
+
+            <div className="space-y-2 mb-6 text-xs text-slate-900">
+              <div className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-slate-900 rounded-sm inline-block"></span>
+                <span><strong>APROVADO INTEGRALMENTE:</strong> Minuta contratual apta para assinatura sem alterações.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-slate-900 rounded-sm inline-block"></span>
+                <span><strong>APROVADO COM RESSALVAS:</strong> Aprovado condicionado à substituição pelas Minutas Blindadas recomendadas.</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-4 h-4 border-2 border-slate-900 rounded-sm inline-block"></span>
+                <span><strong>REJEITADO / DEVOLVIDO:</strong> Minuta com risco crítico. Exige renegociação integral com a contraparte.</span>
+              </div>
+            </div>
+
+            <div className="border-t border-slate-200 pt-3 mb-6">
+              <p className="text-[11px] font-bold text-slate-700 uppercase mb-1">Observações e Ressalvas Adicionais do Advogado:</p>
+              <div className="border border-slate-300 rounded p-2 h-16 bg-white"></div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 pt-6 border-t border-slate-300 text-xs">
+              <div className="space-y-1">
+                <div className="border-b border-slate-900 w-full mb-1"></div>
+                <p className="font-bold text-slate-900">Assinatura do Advogado(a) Responsável</p>
+                <p className="text-slate-600">Inscrição na OAB: _________________________</p>
+              </div>
+              <div className="space-y-1 sm:text-right">
+                <div className="border-b border-slate-900 w-full mb-1"></div>
+                <p className="font-bold text-slate-900">Data de Aprovação e Visto Jurídico</p>
+                <p className="text-slate-600">Em _____ / _____ / 202____</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Rodapé Oficial da Impressão */}
+          <div className="border-t-2 border-slate-900 pt-4 mt-8 text-center text-[10px] text-slate-500 avoid-break">
+            <p className="font-bold text-slate-700 uppercase tracking-widest">
+              LegalOps Brasil • Consultoria e Auditoria Jurídica Corporativa de Alta Performance
+            </p>
+            <p className="mt-0.5">
+              Documento estritamente confidencial e de uso corporativo interno. Fundamentado na Legislação Civil e Processual Brasileira.
             </p>
           </div>
         </div>
