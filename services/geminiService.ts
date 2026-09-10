@@ -1,89 +1,85 @@
+import { LegalAnalysisInput, StructuredAnalysisResult, ChatMessage } from '../types';
 
-import { GoogleGenAI } from "@google/genai";
-import { LegalAnalysisInput } from "../types";
-
-export const analyzeLegalDocument = async (input: LegalAnalysisInput): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  
-  const systemInstruction = `
-Você é o Auditor Jurídico Chefe da Unità Engenharia. Sua missão é realizar uma Pré-Auditoria técnica e padronizada, agindo como uma 'Linha de Produção' de análise contratual.
-Você deve extrair rigorosamente as informações para preencher os campos do modelo padrão Unità.
-
-REGRAS CRÍTICAS DE FORMATAÇÃO:
-- NÃO inclua nenhum texto introdutório, saudação ou comentário como "Aqui está a análise..." ou "Segue o relatório". 
-- Comece a resposta DIRETAMENTE com o primeiro tópico da ficha.
-- Se não encontrar a informação exata, use "Não identificado" ou "Pendente de confirmação".
-- Cite o número da Cláusula sempre que encontrar o dado (Ex: Cláusula 5.2).
-- FOCO TOTAL NO OBJETO: Descreva o que está sendo construído/serviço prestado.
-
-CAMPOS OBRIGATÓRIOS:
-1. Objeto dos Serviços (Detalhamento técnico)
-2. Valor do Contrato (R$ e % Adm)
-3. Forma de Pagamento
-4. Prazo para Aprovação da Medição
-5. Prazo para Pagamento
-6. Documentação Necessária
-7. Retenção de Garantia
-8. Prazo de Execução
-9. Escopo Principal
-10. Responsabilidades Específicas
-11. Penalidades
-`;
-
-  const promptText = `
-Analise o contrato fornecido e preencha EXATAMENTE o formulário abaixo. Comece diretamente no título principal:
-
-# FICHA RESUMO DO CONTRATO
-- **Obra/Empreendimento**: (Nome do local)
-- **Contratante**: (Razão Social)
-- **Objeto dos Serviços**: (Descrição detalhada da execução: projetos, normas, cronograma)
-- **Valor do Contrato**: (Valor R$, Extenso e Taxa de Adm)
-- **Forma de Pagamento**: (Periodicidade e Cláusula)
-- **Prazo para Aprovação da Medição**: (X dias úteis/corridos e Cláusula)
-- **Prazo para Pagamento**: (X dia útil/corrido após aprovação)
-- **Documentação Necessária**: (NF, Boletos, Relatórios e Cláusula)
-- **Retenção de Garantia**: (% Retido e condição de liberação)
-- **Prazo de Execução**: (Meses/Dias e marcos)
-- **Escopo Principal**: (Lista resumida das atividades técnicas)
-
-## RESPONSABILIDADES E PENALIDADES
-- **Responsabilidades Específicas**: (Vícios, Garantias de 5 anos, etc)
-- **Penalidades por Descumprimento**: (Multas por atraso, técnica, rescisória)
-
-## ANÁLISE DE RISCO CORPORATIVO
-- **Principais Alterações / Aditivos**: (Mudanças em segurança ou rescisão se houver)
-- **Índice de Exposição**: (0-100)
-- **Classificação**: (Baixo, Médio, Alto ou Crítico)
-
-## OBSERVAÇÕES DE PRÉ-AUDITORIA
-- (Destaque pontos críticos para o jurídico focar)
-
-# AVISO LEGAL
-Esta análise constitui apoio técnico automatizado para pré-auditoria e não substitui parecer jurídico formal.
-`;
-
-  const parts: any[] = [{ text: promptText }];
-
-  if (input.arquivo) {
-    parts.push({
-      inlineData: {
-        data: input.arquivo.data,
-        mimeType: input.arquivo.mimeType
-      }
-    });
-  } else if (input.documentoTexto) {
-    parts.push({ text: `CONTEÚDO DO CONTRATO:\n${input.documentoTexto}` });
-  }
-
-  const response = await ai.models.generateContent({
-    model: 'gemini-3-pro-preview',
-    contents: { parts },
-    config: {
-      systemInstruction,
-      temperature: 0,
-      thinkingConfig: { thinkingBudget: 15000 }
+export const analyzeLegalDocument = async (input: LegalAnalysisInput): Promise<StructuredAnalysisResult> => {
+  const response = await fetch('/api/analyze', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
     },
+    body: JSON.stringify(input),
   });
 
-  return response.text || "Erro ao processar análise.";
+  if (!response.ok) {
+    let errorDetail = 'Erro ao processar análise no servidor.';
+    try {
+      const errJson = await response.json();
+      if (errJson.error) {
+        const details = errJson.details || '';
+        if (
+          details.includes('503') ||
+          details.includes('high demand') ||
+          details.includes('UNAVAILABLE') ||
+          details.includes('RESOURCE_EXHAUSTED')
+        ) {
+          errorDetail =
+            'A rede da IA está sob pico momentâneo de demanda. O sistema alternou modelos de contingência. Por favor, clique em Tentar Novamente para concluir a auditoria.';
+        } else if (errJson.details) {
+          errorDetail = `${errJson.error}: ${errJson.details}`;
+        } else {
+          errorDetail = errJson.error;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    throw new Error(errorDetail);
+  }
+
+  const data: StructuredAnalysisResult = await response.json();
+  return data;
+};
+
+export const sendChatQuestion = async (
+  question: string,
+  documentContext: string,
+  previousSummary: string,
+  history: ChatMessage[]
+): Promise<string> => {
+  const response = await fetch('/api/chat', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      question,
+      documentContext,
+      previousSummary,
+      history,
+    }),
+  });
+
+  if (!response.ok) {
+    let errorDetail = 'Erro na comunicação com o assistente jurídico.';
+    try {
+      const errJson = await response.json();
+      if (errJson.error) {
+        const details = errJson.details || '';
+        if (
+          details.includes('503') ||
+          details.includes('high demand') ||
+          details.includes('UNAVAILABLE')
+        ) {
+          errorDetail = 'Instabilidade temporária nos servidores. Por favor, reenvie sua pergunta.';
+        } else {
+          errorDetail = errJson.details ? `${errJson.error}: ${errJson.details}` : errJson.error;
+        }
+      }
+    } catch {
+      // ignore
+    }
+    throw new Error(errorDetail);
+  }
+
+  const data = await response.json();
+  return data.answer || '';
 };

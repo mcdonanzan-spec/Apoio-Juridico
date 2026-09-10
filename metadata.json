@@ -1,5 +1,8 @@
 {
-  "name": "LegalOps Brasil - Assistente Jurídico Corporativo",
-  "description": "Uma plataforma inteligente para análise de documentos jurídicos no setor de construção e incorporação brasileira, fornecendo relatórios executivos, scores de risco e fundamentação legal automatizada.",
-  "requestFramePermissions": []
+  "name": "LegalOps Brasil - Advogado Empresarial Corporativo",
+  "description": "Plataforma de inteligência jurídica para direito empresarial brasileiro, análise de minutas e contratos com suporte a RTF, PDF, DOC e PPT, confronto de provas probatórias e recomendações estratégicas.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

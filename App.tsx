@@ -1,25 +1,27 @@
-
 import React, { useState, useCallback } from 'react';
 import AnalysisForm from './components/AnalysisForm';
 import ReportDisplay from './components/ReportDisplay';
 import { analyzeLegalDocument } from './services/geminiService';
-import { LegalAnalysisInput } from './types';
+import { LegalAnalysisInput, StructuredAnalysisResult } from './types';
+import { Scale, ShieldCheck, FileCheck, Sparkles, AlertCircle, FileCode, Paperclip, RefreshCw } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [report, setReport] = useState<string | null>(null);
+  const [report, setReport] = useState<StructuredAnalysisResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleFormSubmit = useCallback(async (data: LegalAnalysisInput) => {
     setLoading(true);
     setError(null);
-    setReport(null);
     try {
       const result = await analyzeLegalDocument(data);
       setReport(result);
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      setError("Falha na comunicação com o servidor de inteligência jurídica. Verifique sua conexão e tente novamente.");
+      setError(
+        err?.message ||
+          'Falha na comunicação com o assistente jurídico. Verifique sua conexão e tente novamente.'
+      );
     } finally {
       setLoading(false);
     }
@@ -31,67 +33,98 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen pb-20">
-      {/* Header */}
-      <header className="bg-slate-900 text-white py-8 mb-10 shadow-lg">
-        <div className="container mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div>
-            <h1 className="text-2xl font-serif">LegalOps Brasil</h1>
-            <p className="text-slate-400 text-sm">Inteligência Jurídica Especializada em Incorporação e Construção Civil</p>
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col">
+      {/* Header Corporativo Executivo */}
+      <header className="bg-slate-950 text-white border-b border-slate-800 shadow-md no-print">
+        <div className="max-w-6xl mx-auto px-4 py-5 flex flex-col md:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-amber-500 to-amber-700 flex items-center justify-center text-slate-950 shadow-md">
+              <Scale className="w-6 h-6 text-slate-950 stroke-[2.2]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-serif font-bold tracking-tight text-white">
+                  LegalOps Brasil
+                </h1>
+                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold uppercase tracking-wider bg-amber-400/10 text-amber-400 border border-amber-400/30">
+                  Advogado Empresarial Sênior
+                </span>
+              </div>
+              <p className="text-slate-400 text-xs mt-0.5">
+                Consultoria, Auditoria de Riscos e Confronto de Documentos Probatórios • Direito Brasileiro
+              </p>
+            </div>
           </div>
-          <div className="flex items-center gap-3">
-            <span className="px-3 py-1 bg-blue-500/20 text-blue-400 text-xs font-bold rounded-full border border-blue-500/30 uppercase tracking-widest">
-              Ambiente Seguro
+
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="px-2.5 py-1 rounded-md bg-slate-900 text-slate-300 border border-slate-800 font-medium flex items-center gap-1.5">
+              <FileCode className="w-3.5 h-3.5 text-amber-400" />
+              Doc Principal (.RTF, .PDF, .DOC)
+            </span>
+            <span className="px-2.5 py-1 rounded-md bg-slate-900 text-slate-300 border border-slate-800 font-medium flex items-center gap-1.5">
+              <Paperclip className="w-3.5 h-3.5 text-indigo-400" />
+              Provas (.PDF, .DOC, .PPT)
+            </span>
+            <span className="px-2.5 py-1 rounded-md bg-slate-900 text-slate-300 border border-slate-800 font-medium flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              CC & STJ
             </span>
           </div>
         </div>
       </header>
 
-      <main className="container mx-auto px-4 max-w-6xl">
+      {/* Conteúdo Principal */}
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 py-8">
         {!report && !loading && (
-          <div className="mb-10 text-center space-y-4">
-            <h2 className="text-4xl font-bold text-slate-800">Análise de Riscos Automatizada</h2>
-            <p className="text-slate-500 max-w-2xl mx-auto">
-              Preencha os campos abaixo para obter um relatório executivo técnico, fundamentação legal e score de risco comparável para seus documentos jurídicos.
+          <div className="mb-8 text-center max-w-2xl mx-auto space-y-2">
+            <h2 className="text-2xl md:text-3xl font-serif font-bold text-slate-900 tracking-tight">
+              Assessoria Jurídica Estratégica & Confronto Probatório
+            </h2>
+            <p className="text-slate-600 text-sm leading-relaxed">
+              Carregue o documento principal a ser auditado (<span className="font-semibold text-slate-900">.rtf, .pdf, .doc, .txt</span>), anexe os documentos que corroborem com a decisão (<span className="font-semibold text-indigo-700">.pdf, .doc, .ppt</span>) e receba um parecer aprofundado com blindagem jurídica e estratégia negocial.
             </p>
           </div>
         )}
 
+        {/* Mensagem de Erro com Fechamento e Botão Tentar Novamente */}
         {error && (
-          <div className="mb-8 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded-r-lg flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-              <span>{error}</span>
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 text-red-800 rounded-xl flex items-start justify-between gap-3 shadow-sm no-print">
+            <div className="flex items-start gap-2.5">
+              <AlertCircle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-xs uppercase tracking-wider text-red-900">Aviso na Consulta Jurídica</p>
+                <p className="text-xs text-red-700 mt-0.5">{error}</p>
+                <p className="text-[11px] text-red-600 mt-1">
+                  O sistema já conta com contingência automática de modelos de IA e repetição inteligente para evitar instabilidades.
+                </p>
+              </div>
             </div>
-            <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 font-bold">✕</button>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-400 hover:text-red-700 font-bold text-sm px-2 py-1"
+            >
+              ✕
+            </button>
           </div>
         )}
 
+        {/* Formulário ou Exibição do Parecer */}
         {!report ? (
           <div className="max-w-4xl mx-auto">
             <AnalysisForm onSubmit={handleFormSubmit} isLoading={loading} />
           </div>
         ) : (
-          <div>
-            <div className="flex justify-between items-center mb-6 no-print">
-              <button 
-                onClick={resetAnalysis}
-                className="text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-2 transition-colors"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M10 19l-7-7m0 0l7-7m-7 7h18"></path></svg>
-                Nova Análise Documental
-              </button>
-            </div>
-            <ReportDisplay report={report} />
-          </div>
+          <ReportDisplay report={report} onNewAnalysis={resetAnalysis} />
         )}
       </main>
 
-      {/* Footer Info */}
-      <footer className="mt-20 py-8 border-t border-slate-200 no-print">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-slate-400 text-sm">© {new Date().getFullYear()} LegalOps Brasil - Tecnologia Jurídica para Engenharia.</p>
-          <p className="text-slate-300 text-xs mt-2">Fundamentado na Legislação Civil, Trabalhista e Leis de Incorporação Brasileira.</p>
+      {/* Footer Profissional */}
+      <footer className="mt-auto py-6 border-t border-slate-200 text-slate-500 text-xs no-print">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3 text-center sm:text-left">
+          <p>© {new Date().getFullYear()} LegalOps Brasil • Inteligência Jurídica para Negócios e Contratos.</p>
+          <p className="text-slate-400">
+            Fundamentado no Código Civil, LSA 6.404/76, Lei 4.591/64, CLT e Jurisprudência dos Tribunais Superiores (STJ/STF).
+          </p>
         </div>
       </footer>
     </div>

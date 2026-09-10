@@ -1,22 +1,28 @@
-
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LegalOps Brasil</title>
+    <title>LegalOps Brasil - Advogado Empresarial Corporativo</title>
+    <meta name="description" content="Plataforma de inteligência jurídica para direito empresarial brasileiro, análise de minutas e contratos com suporte a RTF, PDF e TXT, diagnósticos embasados e recomendações estratégicas.">
+    <meta property="og:title" content="LegalOps Brasil - Advogado Empresarial Corporativo">
+    <meta property="og:description" content="Plataforma de inteligência jurídica para direito empresarial brasileiro, análise de minutas e contratos com suporte a RTF, PDF e TXT, diagnósticos embasados e recomendações estratégicas.">
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,400&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
             background-color: #f8fafc;
+            color: #0f172a;
         }
         .font-serif {
             font-family: 'Playfair Display', serif;
+        }
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
         }
         @media print {
             .no-print {
@@ -24,18 +30,9 @@
             }
         }
     </style>
-<script type="importmap">
-{
-  "imports": {
-    "react": "https://esm.sh/react@^19.2.4",
-    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "@google/genai": "https://esm.sh/@google/genai@^1.42.0"
-  }
-}
-</script>
 </head>
 <body>
     <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
 </body>
 </html>
