@@ -1,547 +1,679 @@
+import { jsPDF } from 'jspdf';
 import { StructuredAnalysisResult, ChatMessage } from '../types';
 
 /**
- * Utilitário de Geração e Exportação de PDF para o Parecer Jurídico Corporativo.
- * Utiliza estilização inline padronizada em Hexadecimal (#hex) para garantir
- * compatibilidade total com o html2canvas e jsPDF, evitando problemas de texto
- * transparente ou páginas em branco causados por sintaxes modernas de cores do Tailwind.
+ * Utilitário profissional de geração de parecer jurídico em formato PDF vetorial.
+ * Utiliza o motor jsPDF direto no documento para garantir:
+ * 1. Zero páginas em branco (não depende de limitações de memória de canvas HTML5).
+ * 2. Texto 100% selecionável, pesquisável e nítido em qualquer zoom ou impressora.
+ * 3. Paginação automática inteligente com cabeçalhos e rodapés oficiais "Página X de Y".
+ * 4. Inclusão completa de todas as abas: Diagnóstico, Provas, Auditoria de Cláusulas com
+ *    Minutas Blindadas, Histórico da Consultoria Interativa e Termo de Aprovação do Advogado.
  */
 
-function escapeHtml(text?: string): string {
-  if (!text) return '';
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
-export function buildReportPrintableHtml(
-  report: StructuredAnalysisResult,
-  chatMessages: ChatMessage[] = []
-): string {
-  const dataHoje = new Date().toLocaleDateString('pt-BR');
-  const versao = report.versaoParecer || 1;
-  const docCode = 'DOC-' + Date.now().toString().slice(-6);
-
-  // Determinar cor do score
-  let scoreColor = '#15803d'; // verde
-  let scoreBg = '#f0fdf4';
-  let scoreBorder = '#bbf7d0';
-  if (report.scoreRisco > 30 && report.scoreRisco <= 60) {
-    scoreColor = '#b45309'; // âmbar
-    scoreBg = '#fffbeb';
-    scoreBorder = '#fde68a';
-  } else if (report.scoreRisco > 60 && report.scoreRisco <= 80) {
-    scoreColor = '#c2410c'; // laranja
-    scoreBg = '#fff7ed';
-    scoreBorder = '#fed7aa';
-  } else if (report.scoreRisco > 80) {
-    scoreColor = '#b91c1c'; // vermelho
-    scoreBg = '#fef2f2';
-    scoreBorder = '#fecaca';
-  }
-
-  // Cláusulas HTML
-  let clausulasHtml = '';
-  if (report.clausulas && report.clausulas.length > 0) {
-    clausulasHtml = report.clausulas
-      .map((c, i) => {
-        let riscoTagBg = '#f1f5f9';
-        let riscoTagColor = '#334155';
-        if (c.grauRisco === 'Crítico') {
-          riscoTagBg = '#fee2e2';
-          riscoTagColor = '#991b1b';
-        } else if (c.grauRisco === 'Alto') {
-          riscoTagBg = '#ffedd5';
-          riscoTagColor = '#9a3412';
-        } else if (c.grauRisco === 'Médio') {
-          riscoTagBg = '#fef3c7';
-          riscoTagColor = '#92400e';
-        } else if (c.grauRisco === 'Baixo') {
-          riscoTagBg = '#dcfce7';
-          riscoTagColor = '#166534';
-        }
-
-        return `
-        <div style="page-break-inside: avoid; break-inside: avoid; border: 1px solid #cbd5e1; border-radius: 8px; padding: 14px; margin-bottom: 14px; background-color: #ffffff;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 1px solid #e2e8f0; padding-bottom: 8px; margin-bottom: 10px;">
-            <div style="font-size: 13px; font-weight: bold; color: #0f172a;">
-              ${escapeHtml(c.numero)} — ${escapeHtml(c.titulo)}
-            </div>
-            <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background-color: ${riscoTagBg}; color: ${riscoTagColor}; border: 1px solid #cbd5e1;">
-              Risco ${escapeHtml(c.grauRisco)}
-            </span>
-          </div>
-
-          ${
-            c.textoOriginal
-              ? `
-          <div style="padding: 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 11px; color: #334155; font-style: italic; margin-bottom: 10px; line-height: 1.5;">
-            <strong style="font-style: normal; display: block; font-size: 10px; text-transform: uppercase; color: #64748b; margin-bottom: 4px;">
-              Redação Original Identificada no Contrato:
-            </strong>
-            "${escapeHtml(c.textoOriginal)}"
-          </div>`
-              : ''
-          }
-
-          <div style="display: flex; gap: 10px; margin-bottom: 10px;">
-            <div style="flex: 1; padding: 10px; background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 6px;">
-              <strong style="display: block; font-size: 10px; text-transform: uppercase; color: #991b1b; margin-bottom: 4px;">
-                Diagnóstico do Risco Jurídico:
-              </strong>
-              <div style="font-size: 11px; color: #1e293b; line-height: 1.4;">
-                ${escapeHtml(c.diagnostico)}
-              </div>
-            </div>
-            <div style="flex: 1; padding: 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
-              <strong style="display: block; font-size: 10px; text-transform: uppercase; color: #334155; margin-bottom: 4px;">
-                Fundamentação Legal (Código Civil / STJ):
-              </strong>
-              <div style="font-size: 11px; color: #1e293b; line-height: 1.4;">
-                ${escapeHtml(c.fundamentacaoLegal)}
-              </div>
-            </div>
-          </div>
-
-          ${
-            c.redacaoSugerida
-              ? `
-          <div style="padding: 12px; background-color: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px;">
-            <strong style="display: block; font-size: 10px; text-transform: uppercase; color: #065f46; margin-bottom: 4px;">
-              Minuta de Redação Blindada Recomendada (Contraproposta):
-            </strong>
-            <div style="font-family: 'Courier New', Courier, monospace; font-size: 11px; color: #0f172a; line-height: 1.5; background-color: #ffffff; padding: 10px; border-radius: 4px; border: 1px solid #a7f3d0; white-space: pre-wrap;">
-${escapeHtml(c.redacaoSugerida)}
-            </div>
-          </div>`
-              : ''
-          }
-        </div>`;
-      })
-      .join('');
-  }
-
-  // Deliberações da Conversa
-  let ajustesConversaHtml = '';
-  if (report.ajustesRealizadosNaConversa && report.ajustesRealizadosNaConversa.length > 0) {
-    ajustesConversaHtml = `
-    <div style="page-break-inside: avoid; break-inside: avoid; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 14px;">
-      <h3 style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: #78350f; margin: 0 0 8px 0;">
-        Decisões & Ajustes Incorporados na Consultoria Interativa (v${versao}.0)
-      </h3>
-      <div style="padding: 10px; background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 6px;">
-        ${report.ajustesRealizadosNaConversa
-          .map(
-            (ajuste) => `
-          <div style="font-size: 11px; color: #78350f; font-weight: 500; margin-bottom: 4px; line-height: 1.4;">
-            • ${escapeHtml(ajuste)}
-          </div>`
-          )
-          .join('')}
-      </div>
-    </div>`;
-  }
-
-  // Riscos Críticos
-  let riscosHtml = '';
-  if (report.principaisRiscos && report.principaisRiscos.length > 0) {
-    riscosHtml = `
-    <div style="page-break-inside: avoid; break-inside: avoid; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 14px;">
-      <h3 style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: #991b1b; margin: 0 0 8px 0;">
-        3. Principais Armadilhas & Riscos Jurídicos Mapeados
-      </h3>
-      <div style="display: flex; flex-direction: column; gap: 6px;">
-        ${report.principaisRiscos
-          .map(
-            (r, idx) => `
-          <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; background-color: #fef2f2; border: 1px solid #fee2e2; border-radius: 6px;">
-            <span style="display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 50%; background-color: #dc2626; color: #ffffff; font-size: 10px; font-weight: bold; flex-shrink: 0;">
-              ${idx + 1}
-            </span>
-            <span style="font-size: 11px; color: #1e293b; font-weight: 500; line-height: 1.4;">
-              ${escapeHtml(r)}
-            </span>
-          </div>`
-          )
-          .join('')}
-      </div>
-    </div>`;
-  }
-
-  // Documentos Corroborativos
-  let corroborativoHtml = '';
-  if (report.cruzamentoCorroborativo || (report.documentosCorroborativosAnalisados && report.documentosCorroborativosAnalisados.length > 0)) {
-    corroborativoHtml = `
-    <div style="page-break-inside: avoid; break-inside: avoid; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 14px;">
-      <h3 style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: #3730a3; margin: 0 0 8px 0;">
-        2. Confronto Probatório com Documentos Corroborativos
-      </h3>
-      ${
-        report.documentosCorroborativosAnalisados && report.documentosCorroborativosAnalisados.length > 0
-          ? `
-      <div style="margin-bottom: 8px;">
-        <span style="font-size: 10px; font-weight: bold; color: #475569; display: block; margin-bottom: 4px;">
-          Evidências e Documentos Cruzados (${report.documentosCorroborativosAnalisados.length}):
-        </span>
-        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
-          ${report.documentosCorroborativosAnalisados
-            .map(
-              (doc) => `
-            <span style="font-size: 10px; background-color: #e0e7ff; color: #312e81; padding: 2px 8px; border-radius: 4px; border: 1px solid #c7d2fe; font-weight: 500;">
-              ${escapeHtml(doc)}
-            </span>`
-            )
-            .join('')}
-        </div>
-      </div>`
-          : ''
-      }
-      ${
-        report.cruzamentoCorroborativo
-          ? `
-      <div style="padding: 10px; background-color: #eef2ff; border: 1px solid #e0e7ff; border-radius: 6px; font-size: 11px; color: #1e1b4b; line-height: 1.5;">
-        ${escapeHtml(report.cruzamentoCorroborativo)}
-      </div>`
-          : ''
-      }
-    </div>`;
-  }
-
-  // Embasamento Legal
-  let fundamentacaoHtml = '';
-  if (report.fundamentacaoDestaque && report.fundamentacaoDestaque.length > 0) {
-    fundamentacaoHtml = `
-    <div style="page-break-inside: avoid; break-inside: avoid; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 14px;">
-      <h3 style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: #0f172a; margin: 0 0 8px 0;">
-        4. Embasamento na Legislação e Jurisprudência Brasileira
-      </h3>
-      <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-        ${report.fundamentacaoDestaque
-          .map(
-            (item) => `
-          <div style="flex: 1 1 calc(50% - 10px); min-width: 280px; padding: 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; box-sizing: border-box;">
-            <strong style="display: block; font-size: 11px; color: #0f172a; margin-bottom: 4px;">
-              ${escapeHtml(item.norma)}
-            </strong>
-            <div style="font-size: 10px; color: #334155; line-height: 1.4;">
-              ${escapeHtml(item.aplicacao)}
-            </div>
-          </div>`
-          )
-          .join('')}
-      </div>
-    </div>`;
-  }
-
-  // Estratégia de Negociação
-  let estrategiaHtml = '';
-  if (report.estrategiaNegocial && report.estrategiaNegocial.length > 0) {
-    estrategiaHtml = `
-    <div style="page-break-inside: avoid; break-inside: avoid; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 14px;">
-      <h3 style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: #0f172a; margin: 0 0 8px 0;">
-        6. Estratégia de Negociação & Plano de Ação Recomendado
-      </h3>
-      <div style="display: flex; flex-direction: column; gap: 6px;">
-        ${report.estrategiaNegocial
-          .map(
-            (passo, idx) => `
-          <div style="display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px;">
-            <span style="display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center; border-radius: 50%; background-color: #0f172a; color: #fbbf24; font-size: 10px; font-weight: bold; flex-shrink: 0;">
-              ${idx + 1}
-            </span>
-            <span style="font-size: 11px; color: #1e293b; font-weight: 500; line-height: 1.4;">
-              ${escapeHtml(passo)}
-            </span>
-          </div>`
-          )
-          .join('')}
-      </div>
-    </div>`;
-  }
-
-  // Histórico de Chat da Consultoria
-  let chatConsultoriaHtml = '';
-  if (chatMessages && chatMessages.length > 0) {
-    chatConsultoriaHtml = `
-    <div style="page-break-inside: avoid; break-inside: avoid; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 14px;">
-      <h3 style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: #0f172a; margin: 0 0 8px 0;">
-        7. Consultoria Jurídica Complementar & Histórico de Alinhamentos
-      </h3>
-      <div style="display: flex; flex-direction: column; gap: 8px;">
-        ${chatMessages
-          .map((msg) => {
-            const isUser = msg.sender === 'user';
-            return `
-          <div style="padding: 10px; border-radius: 6px; border: 1px solid ${isUser ? '#cbd5e1' : '#fde68a'}; background-color: ${isUser ? '#f1f5f9' : '#fffbeb'}; font-size: 11px; line-height: 1.4;">
-            <div style="display: flex; justify-content: space-between; margin-bottom: 4px; font-size: 10px; font-weight: bold; text-transform: uppercase; color: ${isUser ? '#334155' : '#92400e'};">
-              <span>${isUser ? 'Instrução do Solicitante:' : 'Parecer do Advogado Sênior:'}</span>
-              <span style="font-weight: normal; color: #94a3b8;">${escapeHtml(msg.timestamp)}</span>
-            </div>
-            <div style="color: #0f172a; white-space: pre-wrap;">
-              ${escapeHtml(msg.text)}
-            </div>
-          </div>`;
-          })
-          .join('')}
-      </div>
-    </div>`;
-  }
-
-  // Parecer Textual Completo
-  let parecerTextoHtml = '';
-  if (report.relatorioMarkdownCompleto) {
-    parecerTextoHtml = `
-    <div style="page-break-inside: avoid; break-inside: avoid; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 14px;">
-      <h3 style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: #0f172a; margin: 0 0 8px 0;">
-        8. Parecer Jurídico Formal Consolidado
-      </h3>
-      <div style="font-family: 'Courier New', Courier, monospace; font-size: 10px; color: #1e293b; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px; white-space: pre-wrap; line-height: 1.5;">
-${escapeHtml(report.relatorioMarkdownCompleto)}
-      </div>
-    </div>`;
-  }
-
-  return `
-  <div style="width: 740px; margin: 0 auto; font-family: Arial, Helvetica, sans-serif; color: #0f172a; background-color: #ffffff; padding: 10px; box-sizing: border-box;">
-    <!-- CABEÇALHO OFICIAL TIMBRADO -->
-    <div style="display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 2px solid #0f172a; padding-bottom: 12px; margin-bottom: 16px;">
-      <div>
-        <div style="display: flex; align-items: center; gap: 8px;">
-          <span style="font-size: 20px; font-weight: 900; letter-spacing: -0.5px; color: #0f172a;">
-            LEGALOPS BRASIL
-          </span>
-          <span style="font-size: 9px; font-weight: bold; text-transform: uppercase; background-color: #0f172a; color: #ffffff; padding: 2px 6px; border-radius: 3px;">
-            Advocacia Empresarial
-          </span>
-        </div>
-        <div style="font-size: 10px; color: #475569; font-weight: 600; margin-top: 3px;">
-          Consultoria Estratégica, Auditoria Contratual e Blindagem de Riscos Corporativos
-        </div>
-      </div>
-      <div style="text-align: right; font-size: 10px; color: #475569;">
-        <div style="font-weight: 900; font-size: 12px; color: #0f172a; text-transform: uppercase;">
-          PARECER TÉCNICO-JURÍDICO
-        </div>
-        <div style="margin-top: 2px;">
-          Versão v${versao}.0 • ${dataHoje}
-        </div>
-        <div style="font-family: monospace; color: #94a3b8; font-size: 9px;">
-          ${docCode}
-        </div>
-      </div>
-    </div>
-
-    <!-- TARJA DE NOTA DE GOVERNANÇA -->
-    <div style="background-color: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 12px; margin-bottom: 16px;">
-      <strong style="display: block; font-size: 10px; text-transform: uppercase; color: #92400e; margin-bottom: 2px;">
-        Nota de Governança & Validação Profissional:
-      </strong>
-      <div style="font-size: 10px; color: #78350f; line-height: 1.4;">
-        Este relatório constitui instrumento de apoio técnico-jurídico corporativo. As análises, diagnósticos, deliberações e minutas blindadas abaixo apresentados foram calibrados com base na legislação civil brasileira e devem ser formalmente chancelados pelo advogado responsável antes da subscrição definitiva com a contraparte.
-      </div>
-    </div>
-
-    <!-- DADOS DO INSTRUMENTO E SCORE DE RISCO -->
-    <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 12px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
-      <div style="flex: 1;">
-        <h2 style="font-size: 14px; font-weight: bold; color: #0f172a; margin: 0 0 6px 0;">
-          ${escapeHtml(report.titulo || 'Auditoria & Parecer Jurídico')}
-        </h2>
-        <div style="font-size: 11px; color: #475569;">
-          <strong style="color: #0f172a;">Partes & Objeto:</strong> ${escapeHtml(report.partesIdentificadas || 'Partes e instrumento analisados')}
-        </div>
-        <div style="font-size: 11px; color: #475569; margin-top: 3px;">
-          <strong style="color: #0f172a;">Data de Análise:</strong> ${dataHoje}
-        </div>
-      </div>
-      <div style="text-align: right; margin-left: 20px;">
-        <div style="font-size: 9px; font-weight: bold; text-transform: uppercase; color: #64748b; margin-bottom: 4px;">
-          Índice de Exposição
-        </div>
-        <div style="display: inline-flex; align-items: center; gap: 8px;">
-          <span style="font-size: 15px; font-weight: 900; color: #0f172a;">
-            Score ${report.scoreRisco}/100
-          </span>
-          <span style="font-size: 10px; font-weight: bold; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; background-color: ${scoreBg}; color: ${scoreColor}; border: 1px solid ${scoreBorder};">
-            Risco ${escapeHtml(report.classificacaoRisco)}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- DELIBERAÇÕES DA CONVERSA (SE HOUVER) -->
-    ${ajustesConversaHtml}
-
-    <!-- 1. SÍNTESE EXECUTIVA & DIAGNÓSTICO ESTRATÉGICO -->
-    <div style="page-break-inside: avoid; break-inside: avoid; border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 14px;">
-      <h3 style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: #0f172a; margin: 0 0 8px 0;">
-        1. Síntese Executiva & Diagnóstico Estratégico
-      </h3>
-      <div style="font-size: 11px; color: #1e293b; line-height: 1.5; text-align: justify; white-space: pre-line; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px; padding: 12px;">
-        ${escapeHtml(report.resumoExecutivo)}
-      </div>
-    </div>
-
-    <!-- 2. CONFRONTO PROBATÓRIO -->
-    ${corroborativoHtml}
-
-    <!-- 3. PRINCIPAIS RISCOS -->
-    ${riscosHtml}
-
-    <!-- 4. EMBASAMENTO LEGAL -->
-    ${fundamentacaoHtml}
-
-    <!-- 5. AUDITORIA CLÁUSULA A CLÁUSULA -->
-    <div style="border-top: 1px solid #e2e8f0; padding-top: 14px; margin-top: 14px;">
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-        <h3 style="font-size: 12px; font-weight: bold; text-transform: uppercase; color: #0f172a; margin: 0;">
-          5. Auditoria Cláusula a Cláusula & Minutas de Redação Blindada
-        </h3>
-        <span style="font-size: 10px; font-weight: bold; color: #64748b;">
-          Total: ${report.clausulas?.length || 0} cláusula(s) auditada(s)
-        </span>
-      </div>
-      ${clausulasHtml}
-    </div>
-
-    <!-- 6. ESTRATÉGIA NEGOCIAL -->
-    ${estrategiaHtml}
-
-    <!-- 7. HISTÓRICO DA CONSULTORIA INTERATIVA -->
-    ${chatConsultoriaHtml}
-
-    <!-- 8. PARECER FORMAL TEXTUAL -->
-    ${parecerTextoHtml}
-
-    <!-- 9. TERMO DE VALIDAÇÃO E APROVAÇÃO DO ADVOGADO -->
-    <div style="page-break-inside: avoid; break-inside: avoid; border: 2px solid #0f172a; border-radius: 8px; padding: 14px; margin-top: 24px; background-color: #f8fafc;">
-      <h3 style="font-size: 12px; font-weight: 900; text-transform: uppercase; text-align: center; color: #0f172a; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin: 0 0 10px 0; letter-spacing: 0.5px;">
-        9. TERMO DE VALIDAÇÃO E APROVAÇÃO DO ADVOGADO RESPONSÁVEL
-      </h3>
-      <div style="font-size: 10px; color: #334155; line-height: 1.4; margin-bottom: 12px; text-align: justify;">
-        Declaro que examinei as análises, diagnósticos de vulnerabilidades e minutas blindadas sugeridas neste parecer técnico-jurídico corporativo, manifestando a seguinte conclusão:
-      </div>
-
-      <div style="display: flex; flex-direction: column; gap: 6px; margin-bottom: 14px; font-size: 10px; color: #0f172a;">
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <span style="display: inline-block; width: 14px; height: 14px; border: 1.5px solid #0f172a; border-radius: 2px;"></span>
-          <span><strong>APROVADO INTEGRALMENTE:</strong> Minuta contratual apta para assinatura sem alterações.</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <span style="display: inline-block; width: 14px; height: 14px; border: 1.5px solid #0f172a; border-radius: 2px;"></span>
-          <span><strong>APROVADO COM RESSALVAS:</strong> Aprovado condicionado à substituição pelas Minutas Blindadas recomendadas.</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 6px;">
-          <span style="display: inline-block; width: 14px; height: 14px; border: 1.5px solid #0f172a; border-radius: 2px;"></span>
-          <span><strong>REJEITADO / DEVOLVIDO:</strong> Minuta com risco crítico. Exige renegociação integral com a contraparte.</span>
-        </div>
-      </div>
-
-      <div style="border-top: 1px solid #cbd5e1; padding-top: 8px; margin-bottom: 14px;">
-        <span style="font-size: 9px; font-weight: bold; text-transform: uppercase; color: #475569; display: block; margin-bottom: 4px;">
-          Observações e Ressalvas Adicionais do Advogado:
-        </span>
-        <div style="border: 1px solid #cbd5e1; border-radius: 4px; height: 45px; background-color: #ffffff;"></div>
-      </div>
-
-      <div style="display: flex; justify-content: space-between; gap: 20px; border-top: 1px solid #cbd5e1; padding-top: 14px; font-size: 10px;">
-        <div style="flex: 1;">
-          <div style="border-bottom: 1px solid #0f172a; margin-bottom: 4px;"></div>
-          <div style="font-weight: bold; color: #0f172a;">Assinatura do Advogado(a) Responsável</div>
-          <div style="color: #64748b;">Inscrição na OAB: _________________________</div>
-        </div>
-        <div style="flex: 1; text-align: right;">
-          <div style="border-bottom: 1px solid #0f172a; margin-bottom: 4px;"></div>
-          <div style="font-weight: bold; color: #0f172a;">Data de Aprovação e Visto Jurídico</div>
-          <div style="color: #64748b;">Em _____ / _____ / 202____</div>
-        </div>
-      </div>
-    </div>
-
-    <!-- RODAPÉ CORPORATIVO OFICIAL -->
-    <div style="border-top: 2px solid #0f172a; padding-top: 10px; margin-top: 24px; text-align: center; font-size: 9px; color: #64748b; page-break-inside: avoid; break-inside: avoid;">
-      <div style="font-weight: bold; color: #334155; text-transform: uppercase; letter-spacing: 0.5px;">
-        LegalOps Brasil • Consultoria e Auditoria Jurídica Corporativa de Alta Performance
-      </div>
-      <div style="margin-top: 2px;">
-        Documento estritamente confidencial e de uso corporativo interno. Fundamentado na Legislação Civil e Processual Brasileira.
-      </div>
-    </div>
-  </div>`;
-}
-
-/**
- * Executa a exportação oficial em PDF diretamente no navegador.
- */
 export async function downloadReportAsPDF(
   report: StructuredAnalysisResult,
   chatMessages: ChatMessage[] = []
 ): Promise<void> {
-  const htmlContent = buildReportPrintableHtml(report, chatMessages);
+  const doc = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4',
+    compress: true,
+  });
 
-  const originalScrollY = window.scrollY;
-  window.scrollTo(0, 0);
+  const pageWidth = doc.internal.pageSize.getWidth(); // 210mm
+  const pageHeight = doc.internal.pageSize.getHeight(); // 297mm
+  const marginLeft = 15;
+  const marginRight = 15;
+  const marginTop = 20;
+  const marginBottom = 20;
+  const contentWidth = pageWidth - marginLeft - marginRight; // 180mm
 
-  // Criar um wrapper visível de renderização no topo com coordenadas absolutas limpas
-  const renderContainer = document.createElement('div');
-  renderContainer.id = 'legal-pdf-direct-export-container';
-  renderContainer.style.position = 'absolute';
-  renderContainer.style.top = '0';
-  renderContainer.style.left = '0';
-  renderContainer.style.width = '794px';
-  renderContainer.style.backgroundColor = '#ffffff';
-  renderContainer.style.color = '#0f172a';
-  renderContainer.style.zIndex = '9999999'; // acima de qualquer elemento
-  renderContainer.style.boxSizing = 'border-box';
-  renderContainer.style.overflow = 'visible';
-  renderContainer.style.opacity = '1';
-  renderContainer.innerHTML = htmlContent;
+  let yPos = marginTop;
 
-  document.body.appendChild(renderContainer);
+  // Helper para quebra de página
+  const checkPageBreak = (neededHeight: number) => {
+    if (yPos + neededHeight > pageHeight - marginBottom) {
+      doc.addPage();
+      yPos = marginTop + 4;
+      return true;
+    }
+    return false;
+  };
 
-  // Aguardar 300ms para layout e renderização completa dos nós DOM
-  await new Promise((resolve) => setTimeout(resolve, 300));
+  // Cores corporativas
+  const colorNavy = [15, 23, 42] as const; // #0f172a
+  const colorAmber = [217, 119, 6] as const; // #d97706
+  const colorSlate = [51, 65, 85] as const; // #334155
+  const colorLightSlate = [100, 116, 139] as const; // #64748b
+  const colorBgGray = [248, 250, 252] as const; // #f8fafc
+  const colorBorder = [226, 232, 240] as const; // #e2e8f0
 
+  const getRiskColor = (risco: string) => {
+    switch (risco) {
+      case 'Crítico':
+        return [220, 38, 38] as const; // Vermelho
+      case 'Alto':
+        return [234, 88, 12] as const; // Laranja forte
+      case 'Médio':
+        return [217, 119, 6] as const; // Âmbar
+      default:
+        return [16, 185, 129] as const; // Verde
+    }
+  };
+
+  // Helper para títulos de seção
+  const drawSectionTitle = (title: string, badge?: string) => {
+    checkPageBreak(16);
+    yPos += 3;
+
+    doc.setFillColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+    doc.rect(marginLeft, yPos, 3.5, 9.5, 'F');
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(11);
+    doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+    doc.text(title.toUpperCase(), marginLeft + 6, yPos + 6.5);
+
+    if (badge) {
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(colorLightSlate[0], colorLightSlate[1], colorLightSlate[2]);
+      const badgeWidth = doc.getTextWidth(badge);
+      doc.text(badge, pageWidth - marginRight - badgeWidth, yPos + 6.5);
+    }
+
+    yPos += 12;
+  };
+
+  // ==========================================
+  // PÁGINA 1: CABEÇALHO TIMBRADO E PAINEL EXECUTIVO
+  // ==========================================
+
+  // Faixa superior institucional
+  doc.setFillColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+  doc.rect(0, 0, pageWidth, 5, 'F');
+
+  // Topo do Cabeçalho
+  yPos = 14;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+  doc.text('LEGALOPS BRASIL', marginLeft, yPos);
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(8);
+  doc.setTextColor(colorAmber[0], colorAmber[1], colorAmber[2]);
+  doc.text('ADVOCACIA EMPRESARIAL CORPORATIVA', marginLeft + 54, yPos);
+
+  // Metadados no canto superior direito
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(10);
+  doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+  const versaoStr = `PARECER TÉCNICO-JURÍDICO (v${report.versaoParecer || 1}.0)`;
+  const versaoWidth = doc.getTextWidth(versaoStr);
+  doc.text(versaoStr, pageWidth - marginRight - versaoWidth, yPos);
+
+  yPos += 4.5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(colorLightSlate[0], colorLightSlate[1], colorLightSlate[2]);
+  doc.text('Consultoria Estratégica, Auditoria Contratual e Blindagem de Riscos', marginLeft, yPos);
+
+  const dataStr = `Emissão: ${new Date().toLocaleDateString('pt-BR')} • DOC-${Math.floor(100000 + Math.random() * 900000)}`;
+  const dataWidth = doc.getTextWidth(dataStr);
+  doc.text(dataStr, pageWidth - marginRight - dataWidth, yPos);
+
+  // Linha divisória do cabeçalho
+  yPos += 5;
+  doc.setDrawColor(colorBorder[0], colorBorder[1], colorBorder[2]);
+  doc.setLineWidth(0.4);
+  doc.line(marginLeft, yPos, pageWidth - marginRight, yPos);
+
+  // NOTA DE GOVERNANÇA
+  yPos += 5;
+  const notaText =
+    'NOTA DE GOVERNANÇA & VALIDAÇÃO PROFISSIONAL: Este parecer constitui instrumento de apoio técnico-jurídico corporativo especializado. Suas recomendações, auditoria de vícios e minutas blindadas foram calibradas sob as normas civis e empresariais brasileiras e devem ser formalmente chanceladas pelo advogado responsável antes da subscrição definitiva.';
+  doc.setFont('helvetica', 'italic');
+  doc.setFontSize(7.5);
+  const notaLines = doc.splitTextToSize(notaText, contentWidth - 8);
+  const notaHeight = notaLines.length * 3.5 + 5;
+
+  doc.setFillColor(254, 252, 232); // Amarelo suave
+  doc.setDrawColor(254, 240, 138);
+  doc.roundedRect(marginLeft, yPos, contentWidth, notaHeight, 2, 2, 'FD');
+
+  doc.setTextColor(146, 64, 14);
+  doc.text(notaLines, marginLeft + 4, yPos + 4);
+  yPos += notaHeight + 5;
+
+  // PAINEL DE RISCO & IDENTIFICAÇÃO DO CONTRATO
+  const titleLines = doc.splitTextToSize(report.titulo || 'Parecer de Auditoria Contratual', contentWidth - 55);
+  const panelHeight = Math.max(26, titleLines.length * 5 + 16);
+
+  doc.setFillColor(colorBgGray[0], colorBgGray[1], colorBgGray[2]);
+  doc.setDrawColor(colorBorder[0], colorBorder[1], colorBorder[2]);
+  doc.roundedRect(marginLeft, yPos, contentWidth, panelHeight, 2.5, 2.5, 'FD');
+
+  // Título e Objeto
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(11);
+  doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+  doc.text(titleLines, marginLeft + 5, yPos + 6);
+
+  const subY = yPos + titleLines.length * 5 + 5;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(colorSlate[0], colorSlate[1], colorSlate[2]);
+  doc.text(`Partes & Objeto: ${report.partesIdentificadas || 'Instrumento Contratual Corporativo'}`, marginLeft + 5, subY);
+
+  // Badge do Score no canto do painel
+  const riskBoxX = pageWidth - marginRight - 46;
+  const riskColor = getRiskColor(report.classificacaoRisco);
+
+  doc.setFillColor(255, 255, 255);
+  doc.setDrawColor(riskColor[0], riskColor[1], riskColor[2]);
+  doc.setLineWidth(0.8);
+  doc.roundedRect(riskBoxX, yPos + 3.5, 42, panelHeight - 7, 2, 2, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(colorLightSlate[0], colorLightSlate[1], colorLightSlate[2]);
+  doc.text('ÍNDICE DE EXPOSIÇÃO', riskBoxX + 21, yPos + 8, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(13);
+  doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+  doc.text(`${report.scoreRisco || 50}/100`, riskBoxX + 21, yPos + 14, { align: 'center' });
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(riskColor[0], riskColor[1], riskColor[2]);
+  doc.text(`RISCO ${(report.classificacaoRisco || 'Médio').toUpperCase()}`, riskBoxX + 21, yPos + 19, {
+    align: 'center',
+  });
+
+  yPos += panelHeight + 6;
+
+  // AJUSTES INCORPORADOS NA CONSULTORIA INTERATIVA (Se houver)
+  if (report.ajustesRealizadosNaConversa && report.ajustesRealizadosNaConversa.length > 0) {
+    checkPageBreak(30);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(8.5);
+    doc.setTextColor(colorAmber[0], colorAmber[1], colorAmber[2]);
+    doc.text(`DIRETRIZES & AJUSTES NEGOCIAIS ACORDADOS NA CONSULTORIA (v${report.versaoParecer || 2}.0):`, marginLeft, yPos);
+    yPos += 4.5;
+
+    report.ajustesRealizadosNaConversa.forEach((ajuste) => {
+      const lines = doc.splitTextToSize(`• ${ajuste}`, contentWidth - 4);
+      checkPageBreak(lines.length * 4 + 2);
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(colorSlate[0], colorSlate[1], colorSlate[2]);
+      doc.text(lines, marginLeft + 2, yPos);
+      yPos += lines.length * 4 + 1.5;
+    });
+    yPos += 3;
+  }
+
+  // ==========================================
+  // 1. SÍNTESE EXECUTIVA & DIAGNÓSTICO
+  // ==========================================
+  drawSectionTitle('1. Síntese Executiva & Diagnóstico Estratégico');
+
+  const resumoLines = doc.splitTextToSize(report.resumoExecutivo || 'Nenhum resumo executivo fornecido.', contentWidth - 8);
+  const resumoBoxHeight = resumoLines.length * 4 + 7;
+
+  checkPageBreak(resumoBoxHeight);
+  doc.setFillColor(colorBgGray[0], colorBgGray[1], colorBgGray[2]);
+  doc.setDrawColor(colorBorder[0], colorBorder[1], colorBorder[2]);
+  doc.setLineWidth(0.3);
+  doc.roundedRect(marginLeft, yPos, contentWidth, resumoBoxHeight, 2, 2, 'FD');
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8.5);
+  doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+  doc.text(resumoLines, marginLeft + 4, yPos + 5);
+  yPos += resumoBoxHeight + 6;
+
+  // ==========================================
+  // 2. CONFRONTO PROBATÓRIO (Se houver)
+  // ==========================================
+  if (
+    (report.documentosCorroborativosAnalisados && report.documentosCorroborativosAnalisados.length > 0) ||
+    report.cruzamentoCorroborativo
+  ) {
+    drawSectionTitle('2. Confronto Probatório com Documentos Anexos');
+
+    if (report.documentosCorroborativosAnalisados && report.documentosCorroborativosAnalisados.length > 0) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(colorLightSlate[0], colorLightSlate[1], colorLightSlate[2]);
+      doc.text(
+        `DOCUMENTOS ANALISADOS EM CONJUNTO: ${report.documentosCorroborativosAnalisados.join('  |  ')}`,
+        marginLeft,
+        yPos
+      );
+      yPos += 5;
+    }
+
+    if (report.cruzamentoCorroborativo) {
+      const cruzLines = doc.splitTextToSize(report.cruzamentoCorroborativo, contentWidth - 8);
+      const cruzHeight = cruzLines.length * 4 + 7;
+      checkPageBreak(cruzHeight);
+
+      doc.setFillColor(240, 253, 244); // Verde suave
+      doc.setDrawColor(187, 247, 208);
+      doc.roundedRect(marginLeft, yPos, contentWidth, cruzHeight, 2, 2, 'FD');
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8.5);
+      doc.setTextColor(22, 101, 52);
+      doc.text(cruzLines, marginLeft + 4, yPos + 5);
+      yPos += cruzHeight + 6;
+    }
+  }
+
+  // ==========================================
+  // 3. PRINCIPAIS RISCOS E ARMADILHAS
+  // ==========================================
+  if (report.principaisRiscos && report.principaisRiscos.length > 0) {
+    drawSectionTitle('3. Principais Riscos e Armadilhas Jurídicas', `${report.principaisRiscos.length} riscos mapeados`);
+
+    report.principaisRiscos.forEach((risco, idx) => {
+      const lines = doc.splitTextToSize(`${idx + 1}.  ${risco}`, contentWidth - 10);
+      const itemHeight = lines.length * 4 + 4;
+      checkPageBreak(itemHeight);
+
+      doc.setFillColor(254, 242, 242); // Vermelho bem suave
+      doc.setDrawColor(254, 202, 202);
+      doc.roundedRect(marginLeft, yPos, contentWidth, itemHeight, 1.5, 1.5, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(185, 28, 28);
+      doc.text(lines, marginLeft + 5, yPos + 4);
+
+      yPos += itemHeight + 2.5;
+    });
+    yPos += 3;
+  }
+
+  // ==========================================
+  // 4. EMBASAMENTO LEGAL E JURISPRUDÊNCIA
+  // ==========================================
+  if (report.fundamentacaoDestaque && report.fundamentacaoDestaque.length > 0) {
+    drawSectionTitle('4. Embasamento Legal e Jurisprudência Aplicável');
+
+    report.fundamentacaoDestaque.forEach((item) => {
+      const normaLines = doc.splitTextToSize(`Dispositivo: ${item.norma}`, contentWidth - 8);
+      const aplicacaoLines = doc.splitTextToSize(`Aplicação Prática: ${item.aplicacao}`, contentWidth - 8);
+      const cardHeight = (normaLines.length + aplicacaoLines.length) * 4 + 8;
+
+      checkPageBreak(cardHeight);
+
+      doc.setFillColor(colorBgGray[0], colorBgGray[1], colorBgGray[2]);
+      doc.setDrawColor(colorBorder[0], colorBorder[1], colorBorder[2]);
+      doc.roundedRect(marginLeft, yPos, contentWidth, cardHeight, 1.5, 1.5, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8.5);
+      doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+      doc.text(normaLines, marginLeft + 4, yPos + 4.5);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(colorSlate[0], colorSlate[1], colorSlate[2]);
+      doc.text(aplicacaoLines, marginLeft + 4, yPos + 4.5 + normaLines.length * 4);
+
+      yPos += cardHeight + 3;
+    });
+    yPos += 3;
+  }
+
+  // ==========================================
+  // 5. AUDITORIA CLÁUSULA A CLÁUSULA & MINUTAS BLINDADAS
+  // ==========================================
+  if (report.clausulas && report.clausulas.length > 0) {
+    drawSectionTitle(
+      '5. Auditoria Cláusula a Cláusula & Minutas de Redação Blindada',
+      `${report.clausulas.length} cláusula(s) auditada(s)`
+    );
+
+    report.clausulas.forEach((clausula, index) => {
+      // Estimar altura total da cláusula para avaliar quebra de página
+      const titLines = doc.splitTextToSize(
+        `${clausula.numero || `Cláusula ${index + 1}`}: ${clausula.titulo || 'Cláusula Contratual'}`,
+        contentWidth - 35
+      );
+      const origLines = clausula.textoOriginal ? doc.splitTextToSize(clausula.textoOriginal, contentWidth - 10) : [];
+      const diagLines = doc.splitTextToSize(clausula.diagnostico || '', contentWidth - 10);
+      const redacLines = doc.splitTextToSize(clausula.redacaoSugerida || '', contentWidth - 10);
+      const fundLines = clausula.fundamentacaoLegal ? doc.splitTextToSize(clausula.fundamentacaoLegal, contentWidth - 10) : [];
+
+      const totalEstimatedHeight =
+        10 +
+        titLines.length * 4.5 +
+        (origLines.length > 0 ? origLines.length * 3.8 + 8 : 0) +
+        (diagLines.length > 0 ? diagLines.length * 3.8 + 8 : 0) +
+        (redacLines.length > 0 ? redacLines.length * 3.8 + 8 : 0) +
+        (fundLines.length > 0 ? fundLines.length * 3.8 + 7 : 0) +
+        6;
+
+      // Se não couber pelo menos o cabeçalho e diagnóstico, quebra de página antes de começar
+      checkPageBreak(Math.min(totalEstimatedHeight, 55));
+
+      const startY = yPos;
+      const cRiskColor = getRiskColor(clausula.grauRisco);
+
+      // Barra de cabeçalho da cláusula
+      doc.setFillColor(colorBgGray[0], colorBgGray[1], colorBgGray[2]);
+      doc.setDrawColor(colorBorder[0], colorBorder[1], colorBorder[2]);
+      doc.setLineWidth(0.4);
+      doc.roundedRect(marginLeft, yPos, contentWidth, titLines.length * 4.5 + 5, 1.5, 1.5, 'FD');
+
+      // Linha de destaque do risco à esquerda
+      doc.setFillColor(cRiskColor[0], cRiskColor[1], cRiskColor[2]);
+      doc.rect(marginLeft, yPos, 3, titLines.length * 4.5 + 5, 'F');
+
+      // Título da Cláusula
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(9);
+      doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+      doc.text(titLines, marginLeft + 5, yPos + 4.5);
+
+      // Badge de Risco no topo direito
+      const riskText = `RISCO ${(clausula.grauRisco || 'Médio').toUpperCase()}`;
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(cRiskColor[0], cRiskColor[1], cRiskColor[2]);
+      const rw = doc.getTextWidth(riskText);
+      doc.text(riskText, pageWidth - marginRight - rw - 3, yPos + 4.5);
+
+      yPos += titLines.length * 4.5 + 7;
+
+      // 1. TEXTO ORIGINAL DO CONTRATO
+      if (origLines.length > 0) {
+        checkPageBreak(origLines.length * 3.8 + 8);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(colorLightSlate[0], colorLightSlate[1], colorLightSlate[2]);
+        doc.text('TEXTO ORIGINAL DO CONTRATO:', marginLeft + 2, yPos);
+        yPos += 3.5;
+
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(8);
+        doc.setTextColor(colorSlate[0], colorSlate[1], colorSlate[2]);
+        doc.text(origLines, marginLeft + 4, yPos);
+        yPos += origLines.length * 3.8 + 2;
+      }
+
+      // 2. DIAGNÓSTICO JURÍDICO DO VÍCIO
+      if (diagLines.length > 0) {
+        checkPageBreak(diagLines.length * 3.8 + 8);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(185, 28, 28);
+        doc.text('DIAGNÓSTICO DO VÍCIO / ASSIMETRIA:', marginLeft + 2, yPos);
+        yPos += 3.5;
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+        doc.text(diagLines, marginLeft + 4, yPos);
+        yPos += diagLines.length * 3.8 + 2;
+      }
+
+      // 3. REDAÇÃO RECOMENDADA (MINUTA BLINDADA)
+      if (redacLines.length > 0) {
+        const redacBoxHeight = redacLines.length * 3.8 + 8;
+        checkPageBreak(redacBoxHeight + 2);
+
+        doc.setFillColor(254, 252, 232); // Fundo âmbar suave
+        doc.setDrawColor(245, 158, 11);
+        doc.setLineWidth(0.4);
+        doc.roundedRect(marginLeft + 2, yPos, contentWidth - 4, redacBoxHeight, 1.5, 1.5, 'FD');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(7.5);
+        doc.setTextColor(180, 83, 9);
+        doc.text('REDAÇÃO RECOMENDADA (MINUTA BLINDADA):', marginLeft + 5, yPos + 4);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(120, 53, 15);
+        doc.text(redacLines, marginLeft + 5, yPos + 8);
+        yPos += redacBoxHeight + 3;
+      }
+
+      // 4. EMBASAMENTO LEGAL DA CLÁUSULA
+      if (fundLines.length > 0) {
+        checkPageBreak(fundLines.length * 3.8 + 5);
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7.5);
+        doc.setTextColor(colorLightSlate[0], colorLightSlate[1], colorLightSlate[2]);
+        doc.text(fundLines, marginLeft + 2, yPos);
+        yPos += fundLines.length * 3.8 + 2;
+      }
+
+      yPos += 5;
+    });
+  }
+
+  // ==========================================
+  // 6. ESTRATÉGIA NEGOCIAL E PLANO DE AÇÃO
+  // ==========================================
+  if (report.estrategiaNegociacao && report.estrategiaNegociacao.length > 0) {
+    drawSectionTitle('6. Estratégia de Negociação & Plano de Ação Recomendado');
+
+    report.estrategiaNegociacao.forEach((passo, pIndex) => {
+      const pLines = doc.splitTextToSize(`Passo ${pIndex + 1}: ${passo}`, contentWidth - 8);
+      const pHeight = pLines.length * 4 + 4;
+      checkPageBreak(pHeight);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(8);
+      doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+      doc.text(pLines, marginLeft + 4, yPos + 3);
+
+      yPos += pHeight + 1.5;
+    });
+    yPos += 4;
+  }
+
+  // ==========================================
+  // 7. HISTÓRICO DA CONSULTORIA INTERATIVA
+  // ==========================================
+  if (chatMessages && chatMessages.length > 0) {
+    drawSectionTitle(
+      '7. Consultoria Jurídica Complementar & Alinhamento com Agente',
+      `${chatMessages.length} mensagem(ns) registrada(s)`
+    );
+
+    chatMessages.forEach((msg) => {
+      const isLawyer = msg.sender === 'lawyer';
+      const prefix = isLawyer ? 'ADVOGADO EMPRESARIAL SÊNIOR:' : 'USUÁRIO / CONSULTA:';
+      const msgLines = doc.splitTextToSize(msg.text, contentWidth - 12);
+      const cardHeight = msgLines.length * 3.8 + 9;
+
+      checkPageBreak(cardHeight);
+
+      if (isLawyer) {
+        doc.setFillColor(colorBgGray[0], colorBgGray[1], colorBgGray[2]);
+        doc.setDrawColor(colorBorder[0], colorBorder[1], colorBorder[2]);
+      } else {
+        doc.setFillColor(254, 243, 199);
+        doc.setDrawColor(252, 211, 77);
+      }
+
+      doc.roundedRect(marginLeft, yPos, contentWidth, cardHeight, 1.5, 1.5, 'FD');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.5);
+      doc.setTextColor(isLawyer ? colorAmber[0] : colorNavy[0], isLawyer ? colorAmber[1] : colorNavy[1], isLawyer ? colorAmber[2] : colorNavy[2]);
+      doc.text(prefix, marginLeft + 4, yPos + 4);
+
+      if (msg.timestamp) {
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(7);
+        doc.setTextColor(colorLightSlate[0], colorLightSlate[1], colorLightSlate[2]);
+        const timeWidth = doc.getTextWidth(msg.timestamp);
+        doc.text(msg.timestamp, pageWidth - marginRight - timeWidth - 4, yPos + 4);
+      }
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(colorSlate[0], colorSlate[1], colorSlate[2]);
+      doc.text(msgLines, marginLeft + 4, yPos + 8);
+
+      yPos += cardHeight + 2.5;
+    });
+    yPos += 4;
+  }
+
+  // ==========================================
+  // 8. PARECER FORMAL TEXTUAL (Se presente)
+  // ==========================================
+  if (report.relatorioMarkdownCompleto && report.relatorioMarkdownCompleto.trim().length > 100) {
+    drawSectionTitle('8. Parecer Jurídico Formal Consolidado');
+
+    // Limpar marcações markdown pesadas para texto limpo e legível
+    const cleanFormalText = report.relatorioMarkdownCompleto
+      .replace(/#{1,6}\s+/g, '')
+      .replace(/\*\*(.*?)\*\*/g, '$1')
+      .replace(/\*(.*?)\*/g, '$1')
+      .replace(/`{1,3}(.*?)`{1,3}/g, '$1');
+
+    const formalLines = doc.splitTextToSize(cleanFormalText, contentWidth - 8);
+
+    // Escrever em blocos respeitando quebras de página
+    let lineIdx = 0;
+    while (lineIdx < formalLines.length) {
+      checkPageBreak(12);
+      const remainingLinesOnPage = Math.floor((pageHeight - marginBottom - yPos) / 3.8);
+      const linesToDraw = formalLines.slice(lineIdx, lineIdx + remainingLinesOnPage);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(colorSlate[0], colorSlate[1], colorSlate[2]);
+      doc.text(linesToDraw, marginLeft + 4, yPos);
+
+      yPos += linesToDraw.length * 3.8;
+      lineIdx += linesToDraw.length;
+    }
+    yPos += 5;
+  }
+
+  // ==========================================
+  // 9. TERMO DE VALIDAÇÃO E CHANCELA DO ADVOGADO
+  // ==========================================
+  checkPageBreak(58);
+  yPos += 3;
+
+  doc.setFillColor(colorBgGray[0], colorBgGray[1], colorBgGray[2]);
+  doc.setDrawColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+  doc.setLineWidth(0.8);
+  doc.roundedRect(marginLeft, yPos, contentWidth, 54, 2, 2, 'FD');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(9.5);
+  doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+  doc.text('9. TERMO DE VALIDAÇÃO E APROVAÇÃO DO ADVOGADO RESPONSÁVEL', marginLeft + 5, yPos + 6);
+
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.5);
+  doc.setTextColor(colorSlate[0], colorSlate[1], colorSlate[2]);
+  doc.text(
+    'Declaro que examinei as análises, diagnósticos de vulnerabilidades e minutas blindadas sugeridas neste parecer técnico-jurídico corporativo:',
+    marginLeft + 5,
+    yPos + 11
+  );
+
+  // Checkboxes de Decisão
+  const drawCheckbox = (x: number, y: number, label: string) => {
+    doc.setDrawColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+    doc.setLineWidth(0.4);
+    doc.rect(x, y - 2.8, 3.2, 3.2);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(7.5);
+    doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+    doc.text(label, x + 5, y);
+  };
+
+  drawCheckbox(marginLeft + 6, yPos + 18, '[  ] APROVADO INTEGRALMENTE (Minuta apta para assinatura sem alterações)');
+  drawCheckbox(marginLeft + 6, yPos + 23, '[  ] APROVADO COM RESSALVAS (Aprovado condicionado à adoção das Minutas Blindadas)');
+  drawCheckbox(marginLeft + 6, yPos + 28, '[  ] REJEITADO / DEVOLVIDO (Risco crítico incompatível. Exige renegociação integral)');
+
+  // Linhas de Assinatura e Dados
+  yPos += 36;
+  doc.setDrawColor(colorLightSlate[0], colorLightSlate[1], colorLightSlate[2]);
+  doc.setLineWidth(0.3);
+
+  // Assinatura do Advogado
+  doc.line(marginLeft + 8, yPos + 8, marginLeft + 80, yPos + 8);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.5);
+  doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+  doc.text('Assinatura do Advogado Responsável', marginLeft + 8, yPos + 12);
+
+  // OAB e Data
+  doc.line(marginLeft + 95, yPos + 8, marginLeft + 135, yPos + 8);
+  doc.text('Inscrição na OAB / UF', marginLeft + 95, yPos + 12);
+
+  doc.line(marginLeft + 145, yPos + 8, marginLeft + 175, yPos + 8);
+  doc.text('Data do Visto', marginLeft + 145, yPos + 12);
+
+  // ==========================================
+  // RODAPÉ E CABEÇALHO CONTÍNUO EM TODAS AS PÁGINAS
+  // ==========================================
+  const totalPages = doc.getNumberOfPages();
+  for (let i = 1; i <= totalPages; i++) {
+    doc.setPage(i);
+
+    // Cabeçalho contínuo a partir da página 2
+    if (i > 1) {
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(colorLightSlate[0], colorLightSlate[1], colorLightSlate[2]);
+      doc.text('LEGALOPS BRASIL • PARECER TÉCNICO-JURÍDICO CORPORATIVO', marginLeft, 10);
+
+      const pTitle = (report.titulo || 'Auditoria Contratual').slice(0, 45);
+      const ptWidth = doc.getTextWidth(pTitle);
+      doc.text(pTitle, pageWidth - marginRight - ptWidth, 10);
+
+      doc.setDrawColor(colorBorder[0], colorBorder[1], colorBorder[2]);
+      doc.setLineWidth(0.3);
+      doc.line(marginLeft, 12, pageWidth - marginRight, 12);
+    }
+
+    // Rodapé em todas as páginas
+    doc.setDrawColor(colorBorder[0], colorBorder[1], colorBorder[2]);
+    doc.setLineWidth(0.3);
+    doc.line(marginLeft, pageHeight - 12, pageWidth - marginRight, pageHeight - 12);
+
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.setTextColor(colorLightSlate[0], colorLightSlate[1], colorLightSlate[2]);
+    doc.text(
+      'Documento corporativo confidencial emitido para fins de blindagem e estratégia jurídica.',
+      marginLeft,
+      pageHeight - 8
+    );
+
+    const pageStr = `Página ${i} de ${totalPages}`;
+    const pageStrWidth = doc.getTextWidth(pageStr);
+    doc.setFont('helvetica', 'bold');
+    doc.text(pageStr, pageWidth - marginRight - pageStrWidth, pageHeight - 8);
+  }
+
+  // Nome limpo do arquivo
   const cleanTitle = (report.titulo || 'Parecer_Juridico')
     .replace(/[^a-zA-Z0-9]/g, '_')
     .slice(0, 30);
+  const fileName = `Parecer_Juridico_${cleanTitle}_v${report.versaoParecer || 1}_${new Date().toISOString().slice(0, 10)}.pdf`;
 
-  const opt = {
-    margin: [10, 8, 10, 8],
-    filename: `Parecer_Juridico_${cleanTitle}_v${report.versaoParecer || 1}_${new Date().toISOString().slice(0, 10)}.pdf`,
-    image: { type: 'jpeg', quality: 0.98 },
-    html2canvas: {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      scrollY: 0,
-      scrollX: 0,
-      windowWidth: 794,
-      backgroundColor: '#ffffff',
-    },
-    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-  };
-
-  try {
-    // @ts-ignore
-    if (typeof window.html2pdf !== 'undefined') {
-      // @ts-ignore
-      await window.html2pdf().set(opt).from(renderContainer).save();
-    } else {
-      // Fallback para impressão se html2pdf não estiver acessível
-      window.print();
-    }
-  } catch (err) {
-    console.error('Falha na geração direta do PDF com html2pdf:', err);
-    window.print();
-  } finally {
-    if (renderContainer.parentNode) {
-      document.body.removeChild(renderContainer);
-    }
-    window.scrollTo(0, originalScrollY);
-  }
+  // Salvar diretamente o arquivo PDF vetorial
+  doc.save(fileName);
 }
