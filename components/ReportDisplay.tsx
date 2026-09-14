@@ -1,7 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { StructuredAnalysisResult, ChatMessage } from '../types';
+import { StructuredAnalysisResult, ChatMessage, PlanilhaLinha } from '../types';
 import { sendChatQuestion, refineLegalReport } from '../services/geminiService';
 import { downloadReportAsPDF } from '../utils/pdfGenerator';
+import {
+  getLinhasConsolidadas,
+  salvarLinhasNaMatriz,
+  copiarParaClipboardExcel,
+  exportarParaExcelXLSX,
+  exportarParaCSV,
+  limparHistoricoPlanilha,
+  removerContratoDoHistorico,
+} from '../utils/planilhaStorage';
 import {
   Scale,
   ShieldAlert,
@@ -27,7 +36,12 @@ import {
   RefreshCw,
   Wand2,
   Sliders,
-  CheckCheck
+  CheckCheck,
+  FileSpreadsheet,
+  Table,
+  FileDown,
+  Trash2,
+  ExternalLink,
 } from 'lucide-react';
 
 interface ReportDisplayProps {
@@ -38,10 +52,17 @@ interface ReportDisplayProps {
 
 const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, onNewAnalysis, onUpdateReport }) => {
   const [currentReport, setCurrentReport] = useState<StructuredAnalysisResult>(report);
-  const [activeTab, setActiveTab] = useState<'chat' | 'parecer' | 'clausulas' | 'textoCompleto'>('chat');
+  const [activeTab, setActiveTab] = useState<'planilha' | 'chat' | 'parecer' | 'clausulas' | 'textoCompleto'>('planilha');
   const [copiedClauseIdx, setCopiedClauseIdx] = useState<number | null>(null);
+  const [copiedRowIdx, setCopiedRowIdx] = useState<number | null>(null);
   const [copiedAll, setCopiedAll] = useState(false);
   const [isExportingPDF, setIsExportingPDF] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
+
+  // Planilha Matriz & Persistência Local
+  const [filtroPlanilha, setFiltroPlanilha] = useState<'atual' | 'consolidada'>('atual');
+  const [matrizConsolidada, setMatrizConsolidada] = useState<PlanilhaLinha[]>([]);
+  const [planilhaToast, setPlanilhaToast] = useState<string | null>(null);
 
   // Chat follow-up and refinement state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
@@ -50,10 +71,40 @@ const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, onNewAnalysis, on
   const [isRefining, setIsRefining] = useState(false);
   const [refineSuccessNotice, setRefineSuccessNotice] = useState<string | null>(null);
 
-  // Sync state if initial prop changes
+  // Derivar linhas da planilha do contrato atual
+  const obterLinhasContratoAtual = (rep: StructuredAnalysisResult): PlanilhaLinha[] => {
+    if (rep.linhasPlanilha && rep.linhasPlanilha.length > 0) {
+      return rep.linhasPlanilha;
+    }
+    return (rep.clausulas || []).map((c) => ({
+      idContrato: rep.idContrato || 'CTR 02',
+      tipoObjeto: rep.tipoObjeto || 'Instrumento Contratual',
+      clausulaAuditada: `${c.numero} - ${c.titulo}`.trim(),
+      diagnosticoVicio: c.diagnostico || '',
+      redacaoBlindada: c.redacaoSugerida || '',
+      fundamentacaoLegal: c.fundamentacaoLegal || 'Código Civil Brasileiro',
+      grauRisco: c.grauRisco,
+    }));
+  };
+
+  const linhasContratoAtual = obterLinhasContratoAtual(currentReport);
+  const linhasExibicao = filtroPlanilha === 'consolidada' ? matrizConsolidada : linhasContratoAtual;
+
+  // Sync state if initial prop changes e salvar na matriz consolidada
   useEffect(() => {
     setCurrentReport(report);
+    const linhas = obterLinhasContratoAtual(report);
+    const consolidadaAtualizada = salvarLinhasNaMatriz(linhas);
+    setMatrizConsolidada(consolidadaAtualizada);
   }, [report]);
+
+  // Carregar histórico local inicial
+  useEffect(() => {
+    const historico = getLinhasConsolidadas();
+    if (historico && historico.length > 0) {
+      setMatrizConsolidada(historico);
+    }
+  }, []);
 
   // Proactive Initial Briefing from the Corporate Lawyer in the Chat
   useEffect(() => {
@@ -225,8 +276,94 @@ O Score de Risco foi recalculado para **${refined.scoreRisco}/100 (${refined.cla
     }
   };
 
+  const mostrarToast = (msg: string) => {
+    setPlanilhaToast(msg);
+    setTimeout(() => {
+      setPlanilhaToast(null);
+    }, 6000);
+  };
+
+  const handleExportarExcel = () => {
+    setIsExportingExcel(true);
+    try {
+      const nomeBase =
+        filtroPlanilha === 'consolidada'
+          ? 'Matriz_Consolidada_Contratos_Auditoria'
+          : `Planilha_Auditoria_${currentReport.idContrato || 'CTR'}`;
+      exportarParaExcelXLSX(linhasExibicao, nomeBase);
+      mostrarToast(`Planilha Excel (.xlsx) com ${linhasExibicao.length} linhas baixada com sucesso!`);
+    } catch (err) {
+      console.error('Erro ao exportar Excel:', err);
+      alert('Houve um problema ao gerar o arquivo Excel. Você também pode usar a opção "Baixar CSV".');
+    } finally {
+      setIsExportingExcel(false);
+    }
+  };
+
+  const handleExportarCSV = () => {
+    const nomeBase =
+      filtroPlanilha === 'consolidada'
+        ? 'Matriz_Consolidada_Contratos_Auditoria'
+        : `Planilha_Auditoria_${currentReport.idContrato || 'CTR'}`;
+    exportarParaCSV(linhasExibicao, nomeBase);
+    mostrarToast(`Arquivo CSV (.csv) com ${linhasExibicao.length} linhas baixado com sucesso!`);
+  };
+
+  const handleCopiarParaExcel = () => {
+    const sucesso = copiarParaClipboardExcel(linhasExibicao);
+    if (sucesso) {
+      mostrarToast(`Copiado! Pressione Ctrl+V no Excel para preencher as colunas A a F (${linhasExibicao.length} linhas).`);
+    } else {
+      alert('Não foi possível copiar para a área de transferência.');
+    }
+  };
+
+  const handleCopiarMinutaLinha = (linha: PlanilhaLinha, index: number) => {
+    if (linha.redacaoBlindada) {
+      navigator.clipboard.writeText(linha.redacaoBlindada);
+      setCopiedRowIdx(index);
+      setTimeout(() => setCopiedRowIdx(null), 2500);
+      mostrarToast(`Minuta blindada da linha ${index + 1} copiada para a área de transferência!`);
+    }
+  };
+
+  const handleLimparMatriz = () => {
+    if (window.confirm('Deseja limpar todo o histórico acumulado de contratos da matriz consolidada?')) {
+      limparHistoricoPlanilha();
+      setMatrizConsolidada(linhasContratoAtual);
+      mostrarToast('Histórico consolidado da planilha limpo com sucesso.');
+    }
+  };
+
+  const handleRemoverCTR = (idParaRemover: string) => {
+    if (window.confirm(`Deseja remover as linhas do contrato "${idParaRemover}" da matriz consolidada?`)) {
+      const atualizada = removerContratoDoHistorico(idParaRemover);
+      setMatrizConsolidada(atualizada);
+      mostrarToast(`Contrato ${idParaRemover} removido da matriz.`);
+    }
+  };
+
+  // Contratos únicos presentes na matriz consolidada
+  const contratosUnicos = Array.from(new Set(matrizConsolidada.map((l) => l.idContrato)));
+
   return (
     <div className="space-y-6">
+      {/* Toast Informativo da Planilha */}
+      {planilhaToast && (
+        <div className="fixed top-6 right-6 z-[10000000] bg-slate-900 text-white px-5 py-3.5 rounded-2xl shadow-2xl border border-emerald-500/40 flex items-center justify-between gap-3.5 no-print animate-in fade-in slide-in-from-top-3 max-w-md">
+          <div className="flex items-center gap-2.5 text-xs font-semibold text-emerald-300">
+            <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0" />
+            <span>{planilhaToast}</span>
+          </div>
+          <button
+            onClick={() => setPlanilhaToast(null)}
+            className="text-slate-400 hover:text-white text-xs font-bold shrink-0 ml-2"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       {/* Feedback Flutuante de Geração de PDF (não interfere com a captura) */}
       {isExportingPDF && (
         <div className="fixed bottom-6 right-6 z-[10000000] bg-slate-900 text-white px-5 py-4 rounded-2xl shadow-2xl border border-slate-700 flex items-center gap-3.5 no-print animate-in fade-in slide-in-from-bottom-3 max-w-sm">
@@ -270,7 +407,19 @@ O Score de Risco foi recalculado para **${refined.scoreRisco}/100 (${refined.cla
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider block">Passo 1</span>
-              <span className="text-xs font-bold text-slate-900">Auditoria Inicial Concluída</span>
+              <span className="text-xs font-bold text-slate-900">Auditoria & Planilha Gerada</span>
+            </div>
+          </div>
+
+          <ChevronRight className="w-4 h-4 text-slate-300 hidden md:block" />
+
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold text-xs shrink-0">
+              📊
+            </div>
+            <div>
+              <span className="text-[10px] uppercase font-bold text-emerald-700 tracking-wider block">Matriz CTR</span>
+              <span className="text-xs font-bold text-slate-900">Colunas A a F Preenchidas</span>
             </div>
           </div>
 
@@ -282,10 +431,10 @@ O Score de Risco foi recalculado para **${refined.scoreRisco}/100 (${refined.cla
             </div>
             <div>
               <div className="flex items-center gap-1.5">
-                <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">Passo 2 (Em Andamento)</span>
+                <span className="text-[10px] uppercase font-bold text-amber-800 tracking-wider">Passo 2</span>
                 <span className="px-1.5 py-0.2 rounded bg-amber-200/80 text-amber-950 text-[9px] font-extrabold uppercase">Ativo</span>
               </div>
-              <span className="text-xs font-bold text-slate-900">Consultoria & Refinamento com o Agente</span>
+              <span className="text-xs font-bold text-slate-900">Consultoria & Refinamento</span>
             </div>
           </div>
 
@@ -297,7 +446,7 @@ O Score de Risco foi recalculado para **${refined.scoreRisco}/100 (${refined.cla
             </div>
             <div>
               <span className="text-[10px] uppercase font-bold text-slate-400 tracking-wider block">Passo 3</span>
-              <span className="text-xs font-bold text-slate-700">Homologação & Emissão do Relatório (PDF)</span>
+              <span className="text-xs font-bold text-slate-700">Exportação Excel & PDF</span>
             </div>
           </div>
         </div>
@@ -311,7 +460,7 @@ O Score de Risco foi recalculado para **${refined.scoreRisco}/100 (${refined.cla
             className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 hover:text-slate-950 px-3 py-2 rounded-lg hover:bg-slate-100 transition-colors"
           >
             <ArrowLeft className="w-4 h-4" />
-            Nova Análise
+            Novo Contrato
           </button>
 
           {currentReport.versaoParecer && currentReport.versaoParecer > 1 && (
@@ -320,37 +469,46 @@ O Score de Risco foi recalculado para **${refined.scoreRisco}/100 (${refined.cla
               Parecer Versão v{currentReport.versaoParecer}.0 (Aprimorado)
             </span>
           )}
+
+          <span className="px-2.5 py-1 bg-slate-900 text-white font-mono text-xs font-extrabold rounded-lg">
+            {currentReport.idContrato || 'CTR'}
+          </span>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          {/* Botão Copiar para Excel */}
+          <button
+            onClick={handleCopiarParaExcel}
+            className="inline-flex items-center gap-1.5 px-3 py-2 bg-emerald-50 border border-emerald-300 hover:bg-emerald-100 text-emerald-950 text-xs font-bold rounded-lg transition-colors shadow-2xs"
+            title="Copiar todas as linhas das colunas A a F para colar diretamente no Excel (Ctrl+V)"
+          >
+            <Copy className="w-4 h-4 text-emerald-700" />
+            Copiar p/ Excel
+          </button>
+
+          {/* Botão Baixar Excel */}
+          <button
+            onClick={handleExportarExcel}
+            disabled={isExportingExcel}
+            className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-lg transition-colors shadow-2xs disabled:opacity-50"
+            title="Baixar planilha formatada em Excel (.xlsx) com colunas A a F preenchidas"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
+            {isExportingExcel ? 'Gerando...' : 'Exportar Excel (.xlsx)'}
+          </button>
+
+          {/* Botão Sincronizar Conversa com Parecer */}
           <button
             onClick={() => handleRefineReport()}
             disabled={isRefining || chatMessages.length <= 1}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold rounded-lg transition-colors shadow-2xs disabled:opacity-40 disabled:hover:bg-amber-500"
-            title="Sincroniza o relatório oficial com as conclusões e ajustes acordados na conversa"
+            title="Sincroniza o relatório oficial e a planilha com as conclusões e ajustes acordados na conversa"
           >
             <Wand2 className="w-4 h-4" />
-            Aprimorar Parecer com a Conversa
+            Aprimorar Parecer
           </button>
 
-          <button
-            onClick={handleCopyFullReport}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition-colors shadow-2xs"
-            title="Copiar parecer consolidado para a área de transferência"
-          >
-            {copiedAll ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
-            {copiedAll ? 'Copiado!' : 'Copiar Texto'}
-          </button>
-
-          <button
-            onClick={() => window.print()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-lg transition-colors shadow-2xs"
-            title="Imprimir ou Salvar em PDF Vetorial pelo navegador"
-          >
-            <Printer className="w-4 h-4 text-slate-600" />
-            Imprimir / Salvar PDF
-          </button>
-
+          {/* Botão Baixar PDF */}
           <button
             onClick={handleDownloadPDF}
             disabled={isExportingPDF || isRefining}
@@ -518,6 +676,21 @@ O Score de Risco foi recalculado para **${refined.scoreRisco}/100 (${refined.cla
       {/* Navigation Tabs */}
       <div className="flex border-b border-slate-200 bg-white rounded-t-xl px-4 pt-3 gap-2 no-print overflow-x-auto">
         <button
+          onClick={() => setActiveTab('planilha')}
+          className={`pb-3 px-4 text-xs font-bold border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 ${
+            activeTab === 'planilha'
+              ? 'border-emerald-600 text-emerald-950 font-extrabold'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+          <span>Planilha de Auditoria (Colunas A a F)</span>
+          <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-full text-[10px] font-extrabold">
+            {linhasExibicao.length} {linhasExibicao.length === 1 ? 'linha' : 'linhas'}
+          </span>
+        </button>
+
+        <button
           onClick={() => setActiveTab('chat')}
           className={`pb-3 px-4 text-xs font-bold border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 ${
             activeTab === 'chat'
@@ -568,6 +741,281 @@ O Score de Risco foi recalculado para **${refined.scoreRisco}/100 (${refined.cla
           Parecer Completo (Texto)
         </button>
       </div>
+
+      {/* TAB 0: PLANILHA DE AUDITORIA & MATRIZ DE CONTRATOS (COLUNAS A A F) */}
+      {activeTab === 'planilha' && (
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-6 md:p-8 space-y-6">
+          {/* Top Bar da Planilha */}
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-5 border-b border-slate-100">
+            <div>
+              <div className="flex flex-wrap items-center gap-2.5">
+                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                  <FileSpreadsheet className="w-5 h-5 text-emerald-600" />
+                  Matriz de Auditoria Contratual (Planilha Gerencial)
+                </h3>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                  Colunas A a F
+                </span>
+                <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-900 text-white">
+                  {currentReport.idContrato || 'CTR'}
+                </span>
+              </div>
+              <p className="text-xs text-slate-500 mt-1">
+                Estruturada exatamente conforme o modelo da planilha corporativa. Copie com 1 clique (Ctrl+V) ou baixe em formato nativo do Excel.
+              </p>
+            </div>
+
+            {/* Ações de Exportação */}
+            <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
+              <button
+                onClick={handleCopiarParaExcel}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-emerald-500 hover:bg-emerald-600 text-slate-950 text-xs font-extrabold rounded-xl transition-all shadow-sm active:scale-98"
+                title="Copiar todas as linhas das colunas A a F (Ctrl+V no Excel)"
+              >
+                <Copy className="w-4 h-4 text-slate-950" />
+                Copiar p/ Excel (Ctrl+V)
+              </button>
+
+              <button
+                onClick={handleExportarExcel}
+                disabled={isExportingExcel}
+                className="inline-flex items-center gap-1.5 px-3.5 py-2 bg-slate-900 hover:bg-black text-white text-xs font-bold rounded-xl transition-all shadow-sm disabled:opacity-50"
+                title="Baixar planilha real do Excel (.xlsx) com células ajustadas"
+              >
+                <FileDown className="w-4 h-4 text-emerald-400" />
+                {isExportingExcel ? 'Gerando...' : 'Baixar Excel (.xlsx)'}
+              </button>
+
+              <button
+                onClick={handleExportarCSV}
+                className="inline-flex items-center gap-1.5 px-3 py-2 bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl transition-all shadow-2xs"
+                title="Baixar arquivo CSV compatível com Excel em Português (ponto e vírgula com UTF-8 BOM)"
+              >
+                Baixar .CSV
+              </button>
+            </div>
+          </div>
+
+          {/* Seletor de Modo: Apenas Este Contrato vs Matriz Consolidada */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 bg-slate-50 rounded-xl border border-slate-200">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">Visualização:</span>
+              <div className="inline-flex bg-white rounded-lg p-1 border border-slate-200 shadow-2xs">
+                <button
+                  onClick={() => setFiltroPlanilha('atual')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                    filtroPlanilha === 'atual'
+                      ? 'bg-slate-900 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Contrato Atual ({currentReport.idContrato || 'CTR'} • {linhasContratoAtual.length} linhas)
+                </button>
+                <button
+                  onClick={() => setFiltroPlanilha('consolidada')}
+                  className={`px-3 py-1.5 text-xs font-bold rounded-md transition-all ${
+                    filtroPlanilha === 'consolidada'
+                      ? 'bg-emerald-700 text-white shadow-xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  Matriz Consolidada ({matrizConsolidada.length} linhas • {contratosUnicos.length} CTRs)
+                </button>
+              </div>
+            </div>
+
+            {filtroPlanilha === 'consolidada' && matrizConsolidada.length > 0 && (
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] text-slate-500">
+                  CTRs na matriz: <strong>{contratosUnicos.join(', ')}</strong>
+                </span>
+                <button
+                  onClick={handleLimparMatriz}
+                  className="inline-flex items-center gap-1 text-[11px] text-red-600 hover:text-red-800 font-bold px-2 py-1 rounded hover:bg-red-50 transition-colors"
+                  title="Limpar histórico da matriz consolidada"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  Limpar Matriz
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Guia das 6 Colunas da Planilha */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2 text-xs">
+            <div className="p-2.5 rounded-lg bg-amber-50/70 border border-amber-200">
+              <span className="text-[10px] uppercase font-bold text-amber-800 block">Coluna A</span>
+              <span className="font-bold text-slate-900">ID Contrato</span>
+              <p className="text-[10px] text-slate-500 mt-0.5">Ex: CTR 02, CTR 03...</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-blue-50/70 border border-blue-200">
+              <span className="text-[10px] uppercase font-bold text-blue-800 block">Coluna B</span>
+              <span className="font-bold text-slate-900">Tipo / Objeto</span>
+              <p className="text-[10px] text-slate-500 mt-0.5">Objeto auditado</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-slate-100 border border-slate-200">
+              <span className="text-[10px] uppercase font-bold text-slate-600 block">Coluna C</span>
+              <span className="font-bold text-slate-900">Cláusula Auditada</span>
+              <p className="text-[10px] text-slate-500 mt-0.5">Número e tema</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-red-50/70 border border-red-200">
+              <span className="text-[10px] uppercase font-bold text-red-800 block">Coluna D</span>
+              <span className="font-bold text-slate-900">Diagnóstico / Vício</span>
+              <p className="text-[10px] text-slate-500 mt-0.5">Risco e armadilha</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-emerald-50/70 border border-emerald-200">
+              <span className="text-[10px] uppercase font-bold text-emerald-800 block">Coluna E</span>
+              <span className="font-bold text-slate-900">Redação Blindada</span>
+              <p className="text-[10px] text-slate-500 mt-0.5">Minuta protetiva</p>
+            </div>
+            <div className="p-2.5 rounded-lg bg-purple-50/70 border border-purple-200">
+              <span className="text-[10px] uppercase font-bold text-purple-800 block">Coluna F</span>
+              <span className="font-bold text-slate-900">Fundamentação</span>
+              <p className="text-[10px] text-slate-500 mt-0.5">Legislação e artigos</p>
+            </div>
+          </div>
+
+          {/* TABELA PRINCIPAL DA PLANILHA */}
+          <div className="overflow-x-auto border border-slate-200 rounded-xl shadow-2xs">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="bg-slate-900 text-white font-bold text-[11px] uppercase tracking-wider divide-x divide-slate-800">
+                  <th className="p-3 text-center w-12 bg-slate-950">#</th>
+                  <th className="p-3 w-28 text-amber-300">Coluna A: ID Contrato</th>
+                  <th className="p-3 w-44">Coluna B: Tipo / Objeto</th>
+                  <th className="p-3 w-44">Coluna C: Cláusula Auditada</th>
+                  <th className="p-3 min-w-[260px] text-red-200">Coluna D: Diagnóstico / Vício</th>
+                  <th className="p-3 min-w-[320px] text-emerald-300">Coluna E: Redação Blindada (Sugestão)</th>
+                  <th className="p-3 min-w-[200px] text-purple-200">Coluna F: Fundamentação Legal</th>
+                  {filtroPlanilha === 'consolidada' && (
+                    <th className="p-3 w-16 text-center">Ações</th>
+                  )}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200 bg-white">
+                {linhasExibicao.map((linha, idx) => (
+                  <tr
+                    key={idx}
+                    className="hover:bg-slate-50/80 transition-colors divide-x divide-slate-100 align-top"
+                  >
+                    {/* Linha # */}
+                    <td className="p-3 text-center font-mono text-slate-400 font-bold bg-slate-50/50">
+                      {idx + 1}
+                    </td>
+
+                    {/* Coluna A: ID Contrato */}
+                    <td className="p-3">
+                      <span className="inline-block px-2.5 py-1 bg-slate-900 text-amber-400 font-mono font-bold rounded-md shadow-2xs text-[11px]">
+                        {linha.idContrato || 'CTR'}
+                      </span>
+                    </td>
+
+                    {/* Coluna B: Tipo / Objeto */}
+                    <td className="p-3 text-slate-800 font-medium leading-relaxed">
+                      {linha.tipoObjeto || currentReport.tipoObjeto || 'Instrumento Contratual'}
+                    </td>
+
+                    {/* Coluna C: Cláusula Auditada */}
+                    <td className="p-3">
+                      <div className="font-bold text-slate-900 leading-snug">
+                        {linha.clausulaAuditada}
+                      </div>
+                      {linha.grauRisco && (
+                        <span
+                          className={`inline-block mt-1.5 px-2 py-0.5 text-[9px] font-extrabold uppercase rounded ${
+                            linha.grauRisco === 'Crítico'
+                              ? 'bg-red-100 text-red-800'
+                              : linha.grauRisco === 'Alto'
+                              ? 'bg-orange-100 text-orange-800'
+                              : linha.grauRisco === 'Médio'
+                              ? 'bg-amber-100 text-amber-800'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          Risco {linha.grauRisco}
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Coluna D: Diagnóstico / Vício */}
+                    <td className="p-3 text-slate-800 leading-relaxed bg-red-50/20">
+                      <div className="font-medium text-slate-900 whitespace-pre-wrap">
+                        {linha.diagnosticoVicio}
+                      </div>
+                    </td>
+
+                    {/* Coluna E: Redação Blindada (Sugestão) */}
+                    <td className="p-3 bg-emerald-50/20">
+                      <div className="relative group">
+                        <div className="font-mono text-[11px] text-emerald-950 bg-emerald-50/60 p-2.5 rounded-lg border border-emerald-200/80 whitespace-pre-wrap leading-relaxed">
+                          {linha.redacaoBlindada}
+                        </div>
+                        <button
+                          onClick={() => handleCopiarMinutaLinha(linha, idx)}
+                          className="mt-1.5 inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 hover:text-emerald-900 hover:underline"
+                          title="Copiar apenas esta minuta blindada"
+                        >
+                          {copiedRowIdx === idx ? <Check className="w-3 h-3 text-emerald-600" /> : <Copy className="w-3 h-3" />}
+                          {copiedRowIdx === idx ? 'Copiada!' : 'Copiar minuta'}
+                        </button>
+                      </div>
+                    </td>
+
+                    {/* Coluna F: Fundamentação Legal */}
+                    <td className="p-3 text-slate-700 leading-relaxed bg-purple-50/10">
+                      <span className="inline-block px-2 py-1 bg-purple-50 text-purple-900 rounded font-medium border border-purple-200/60 text-[11px]">
+                        {linha.fundamentacaoLegal}
+                      </span>
+                    </td>
+
+                    {/* Ações na Matriz Consolidada */}
+                    {filtroPlanilha === 'consolidada' && (
+                      <td className="p-3 text-center">
+                        <button
+                          onClick={() => handleRemoverCTR(linha.idContrato)}
+                          className="text-slate-400 hover:text-red-600 p-1 rounded hover:bg-slate-100 transition-colors"
+                          title={`Remover contrato ${linha.idContrato} da matriz`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Dica de Integração com o Excel / Google Sheets */}
+          <div className="p-4 bg-emerald-50/80 border border-emerald-200 rounded-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs text-emerald-950">
+            <div className="flex items-center gap-2.5">
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <div>
+                <strong>Como colar no Excel:</strong> Clique em{' '}
+                <button
+                  onClick={handleCopiarParaExcel}
+                  className="font-bold underline text-emerald-900 hover:text-black"
+                >
+                  "Copiar p/ Excel"
+                </button>
+                , abra sua planilha do Excel ou Google Sheets, selecione a primeira célula da Coluna A e pressione{' '}
+                <kbd className="px-1.5 py-0.5 bg-white border border-emerald-300 rounded font-mono font-bold text-slate-900 shadow-2xs">
+                  Ctrl + V
+                </kbd>
+                . Todas as 6 colunas serão preenchidas automaticamente alinhadas!
+              </div>
+            </div>
+            <button
+              onClick={handleExportarExcel}
+              disabled={isExportingExcel}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white font-bold rounded-lg shadow-2xs shrink-0"
+            >
+              <FileDown className="w-3.5 h-3.5" />
+              Baixar .xlsx
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* TAB 1: CONSULTORIA INTERATIVA & REFINAMENTO COM O AGENTE */}
       {activeTab === 'chat' && (

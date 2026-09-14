@@ -25,6 +25,8 @@ export interface DocumentoCorroborativo {
 
 export interface LegalAnalysisInput {
   promptSimples: string;
+  idContrato?: string; // Ex: CTR 02, CTR 03, CTR 04...
+  tipoObjeto?: string; // Ex: Empreitada Global / Execução de obras
   documentoTexto?: string;
   arquivo?: {
     name: string;
@@ -36,6 +38,16 @@ export interface LegalAnalysisInput {
   parametrosOpcionais?: OptionalParameters;
 }
 
+export interface PlanilhaLinha {
+  idContrato: string; // Coluna A: ID Contrato (ex: CTR 02)
+  tipoObjeto: string; // Coluna B: Tipo / Objeto
+  clausulaAuditada: string; // Coluna C: Cláusula Auditada
+  diagnosticoVicio: string; // Coluna D: Diagnóstico / Vício
+  redacaoBlindada: string; // Coluna E: Redação Blindada (Sugestão)
+  fundamentacaoLegal: string; // Coluna F: Fundamentação Legal
+  grauRisco?: 'Baixo' | 'Médio' | 'Alto' | 'Crítico';
+}
+
 export interface ClausulaAnalise {
   numero: string;
   titulo: string;
@@ -44,6 +56,11 @@ export interface ClausulaAnalise {
   diagnostico: string;
   fundamentacaoLegal: string;
   redacaoSugerida: string;
+  idContrato?: string;
+  tipoObjeto?: string;
+  clausulaAuditada?: string;
+  diagnosticoVicio?: string;
+  redacaoBlindada?: string;
 }
 
 export interface FundamentacaoItem {
@@ -52,6 +69,8 @@ export interface FundamentacaoItem {
 }
 
 export interface StructuredAnalysisResult {
+  idContrato?: string; // Ex: CTR 02
+  tipoObjeto?: string; // Ex: Empreitada Global / Obras Civis
   titulo: string;
   resumoExecutivo: string;
   partesIdentificadas: string;
@@ -60,6 +79,7 @@ export interface StructuredAnalysisResult {
   principaisRiscos: string[];
   fundamentacaoDestaque: FundamentacaoItem[];
   clausulas: ClausulaAnalise[];
+  linhasPlanilha?: PlanilhaLinha[]; // Linhas correspondentes à planilha de auditoria
   estrategiaNegocial: string[];
   documentosCorroborativosAnalisados?: string[];
   cruzamentoCorroborativo?: string;

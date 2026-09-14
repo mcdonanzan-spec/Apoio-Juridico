@@ -209,13 +209,15 @@ export async function downloadReportAsPDF(
   doc.setFontSize(10);
   const titleLines = doc.splitTextToSize(cleanTitleStr, leftColWidth - 8);
 
-  const cleanPartesStr = `Partes & Objeto: ${cleanTextForPDF(report.partesIdentificadas || 'Instrumento Contratual Corporativo')}`;
+  const cleanIdStr = `ID CONTRATO: ${cleanTextForPDF(report.idContrato || 'CTR')}  •  OBJETO: ${cleanTextForPDF(report.tipoObjeto || 'Instrumento Contratual')}`;
+  const cleanPartesStr = `Partes: ${cleanTextForPDF(report.partesIdentificadas || 'Partes e instrumento analisados')}`;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.8);
+  const idLines = doc.splitTextToSize(cleanIdStr, leftColWidth - 8);
   const partesLines = doc.splitTextToSize(cleanPartesStr, leftColWidth - 8);
 
-  const leftTextTotalHeight = 6 + (titleLines.length * 4.6) + (partesLines.length * 3.6) + 5;
-  const panelHeight = Math.max(leftTextTotalHeight, 30);
+  const leftTextTotalHeight = 6 + (titleLines.length * 4.6) + (idLines.length * 3.6) + (partesLines.length * 3.6) + 6;
+  const panelHeight = Math.max(leftTextTotalHeight, 32);
 
   // Fundo do Painel
   doc.setFillColor(colorBgGray[0], colorBgGray[1], colorBgGray[2]);
@@ -229,11 +231,18 @@ export async function downloadReportAsPDF(
   doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
   doc.text(titleLines, marginLeft + 4, yPos + 6);
 
-  const partesY = yPos + 6 + (titleLines.length * 4.6) + 1.5;
+  // Linha do ID Contrato e Tipo
+  let currentY = yPos + 6 + (titleLines.length * 4.6) + 1.5;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7.8);
+  doc.setTextColor(colorAmber[0], colorAmber[1], colorAmber[2]);
+  doc.text(idLines, marginLeft + 4, currentY);
+
+  currentY += (idLines.length * 3.6) + 1.2;
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(7.8);
   doc.setTextColor(colorSlate[0], colorSlate[1], colorSlate[2]);
-  doc.text(partesLines, marginLeft + 4, partesY);
+  doc.text(partesLines, marginLeft + 4, currentY);
 
   // Coluna Direita: Caixa de Score de Risco
   const riskColor = getRiskColor(report.classificacaoRisco);
@@ -568,6 +577,104 @@ export async function downloadReportAsPDF(
 
       yPos += 4;
     });
+  }
+
+  // =========================================================================
+  // 5.1. MATRIZ DE AUDITORIA DE CONTRATOS (PLANILHA EXECUTIVA - COLUNAS A A F)
+  // =========================================================================
+  const linhasMatriz = (report.linhasPlanilha && report.linhasPlanilha.length > 0)
+    ? report.linhasPlanilha
+    : (report.clausulas || []).map(c => ({
+        idContrato: report.idContrato || 'CTR',
+        tipoObjeto: report.tipoObjeto || 'Instrumento Contratual',
+        clausulaAuditada: `${c.numero} - ${c.titulo}`.trim(),
+        diagnosticoVicio: c.diagnostico || '',
+        redacaoBlindada: c.redacaoSugerida || '',
+        fundamentacaoLegal: c.fundamentacaoLegal || 'Código Civil Brasileiro',
+        grauRisco: c.grauRisco
+      }));
+
+  if (linhasMatriz && linhasMatriz.length > 0) {
+    drawSectionTitle('5.1. Matriz de Auditoria de Contratos (Planilha Gerencial - Colunas A a F)', `${linhasMatriz.length} linha(s)`);
+
+    linhasMatriz.forEach((linha, lIdx) => {
+      const cleanId = cleanTextForPDF(linha.idContrato || report.idContrato || 'CTR');
+      const cleanObjeto = cleanTextForPDF(linha.tipoObjeto || report.tipoObjeto || 'Instrumento Contratual');
+      const cleanClausula = cleanTextForPDF(linha.clausulaAuditada);
+      const cleanDiag = cleanTextForPDF(linha.diagnosticoVicio);
+      const cleanRedac = cleanTextForPDF(linha.redacaoBlindada);
+      const cleanFund = cleanTextForPDF(linha.fundamentacaoLegal);
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.4);
+      const diagLines = doc.splitTextToSize(cleanDiag, contentWidth - 14);
+      const redacLines = doc.splitTextToSize(cleanRedac, contentWidth - 14);
+
+      const estimatedHeight = 16 + (diagLines.length * 3.4) + (redacLines.length * 3.4) + 12;
+      checkPageBreak(estimatedHeight);
+
+      // Card da Linha da Planilha
+      doc.setFillColor(colorBgGray[0], colorBgGray[1], colorBgGray[2]);
+      doc.setDrawColor(colorBorder[0], colorBorder[1], colorBorder[2]);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(marginLeft, yPos, contentWidth, estimatedHeight - 2, 1.5, 1.5, 'FD');
+
+      // Cabeçalho da Linha: Coluna A & B
+      doc.setFillColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+      doc.roundedRect(marginLeft, yPos, contentWidth, 6, 1.5, 1.5, 'F');
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.2);
+      doc.setTextColor(245, 158, 11);
+      doc.text(`[COLUNA A] ${cleanId}`, marginLeft + 4, yPos + 4.2);
+
+      doc.setTextColor(255, 255, 255);
+      doc.text(`•  [COLUNA B: OBJETO] ${cleanObjeto}`, marginLeft + 34, yPos + 4.2);
+
+      let cardY = yPos + 9.5;
+
+      // Coluna C: Cláusula
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7.4);
+      doc.setTextColor(colorNavy[0], colorNavy[1], colorNavy[2]);
+      doc.text(`[COLUNA C - CLÁUSULA]: ${cleanClausula}`, marginLeft + 4, cardY);
+      cardY += 4;
+
+      // Coluna D: Diagnóstico / Vício
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(185, 28, 28);
+      doc.text('[COLUNA D - DIAGNÓSTICO / VÍCIO]:', marginLeft + 4, cardY);
+      cardY += 3.2;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.2);
+      doc.setTextColor(colorSlate[0], colorSlate[1], colorSlate[2]);
+      doc.text(diagLines, marginLeft + 6, cardY);
+      cardY += diagLines.length * 3.4 + 2;
+
+      // Coluna E: Redação Blindada
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(180, 83, 9);
+      doc.text('[COLUNA E - REDAÇÃO BLINDADA (SUGESTÃO)]:', marginLeft + 4, cardY);
+      cardY += 3.2;
+
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(7.2);
+      doc.setTextColor(120, 53, 15);
+      doc.text(redacLines, marginLeft + 6, cardY);
+      cardY += redacLines.length * 3.4 + 2;
+
+      // Coluna F: Fundamentação Legal
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(7);
+      doc.setTextColor(colorLightSlate[0], colorLightSlate[1], colorLightSlate[2]);
+      doc.text(`[COLUNA F - FUNDAMENTAÇÃO LEGAL]: ${cleanFund}`, marginLeft + 4, cardY);
+
+      yPos += estimatedHeight + 2;
+    });
+    yPos += 3;
   }
 
   // =========================================================================

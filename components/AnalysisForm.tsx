@@ -63,9 +63,13 @@ const QUICK_PROMPTS = [
 ];
 
 const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, isLoading }) => {
+  // Matriz de Auditoria / Planilha
+  const [idContrato, setIdContrato] = useState('CTR 02');
+  const [tipoObjeto, setTipoObjeto] = useState('Empreitada Global / Obras e Serviços de Engenharia');
+
   // Main prompt
   const [promptSimples, setPromptSimples] = useState(
-    'Realize uma auditoria jurídica minuciosa confrontando o documento com as provas e documentos corroborativos, apontando armadilhas contratuais e fornecendo sugestões de redação defensiva com embasamento no Direito Brasileiro.'
+    'Realize uma auditoria jurídica minuciosa confrontando o contrato com as provas e documentos corroborativos anexados, apontando vícios e redigindo minutas blindadas para preenchimento da planilha gerencial com fundamentação legal.'
   );
 
   // 1. Main Document state
@@ -86,6 +90,21 @@ const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, isLoading }) => {
   const [corroboratingDocs, setCorroboratingDocs] = useState<DocumentoCorroborativo[]>([]);
   const [isDraggingCorrob, setIsDraggingCorrob] = useState(false);
   const [corrobParsing, setCorrobParsing] = useState(false);
+
+  // Common contract IDs from user's matrix
+  const CONTRATOS_MATRIZ = [
+    'CTR 02',
+    'CTR 03',
+    'CTR 04',
+    'CTR 05',
+    'CTR 06',
+    'CTR 07',
+    'CTR 08',
+    'CTR 09',
+    'CTR 20',
+    'CTR 28',
+    'CTR 35',
+  ];
 
   // Optional parameters toggle
   const [showOptionalParams, setShowOptionalParams] = useState(false);
@@ -128,6 +147,13 @@ const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, isLoading }) => {
     try {
       const parsed = await parseDocumentFile(file);
       const base64 = await fileToBase64(file);
+
+      // Auto-identificar ID Contrato pelo nome do arquivo (ex: "CTR 02 - Empreitada.pdf")
+      const matchCtr = file.name.match(/CTR\s*[-_]?\s*(\d{1,3})/i);
+      if (matchCtr) {
+        const num = matchCtr[1].padStart(2, '0');
+        setIdContrato(`CTR ${num}`);
+      }
 
       setSelectedFile({
         name: file.name,
@@ -248,6 +274,8 @@ const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, isLoading }) => {
 
     onSubmit({
       promptSimples: promptSimples.trim(),
+      idContrato: idContrato.trim() || 'CTR',
+      tipoObjeto: tipoObjeto.trim() || 'Instrumento Contratual',
       documentoTexto: docText,
       arquivo: arquivoPayload,
       documentosCorroborativos: corroboratingDocs.length > 0 ? corroboratingDocs : undefined,
@@ -278,6 +306,110 @@ const AnalysisForm: React.FC<AnalysisFormProps> = ({ onSubmit, isLoading }) => {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
+      {/* 0. IDENTIFICAÇÃO NA PLANILHA MATRIZ (COLUNAS A A F) */}
+      <div className="bg-gradient-to-r from-slate-900 to-slate-800 text-white p-6 rounded-2xl shadow-md border border-slate-700">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-700/80 mb-5">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
+              <FileSpreadsheet className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                Identificação na Planilha de Auditoria (Colunas A a F)
+              </h3>
+              <p className="text-slate-300 text-xs mt-0.5">
+                O parecer preencherá automaticamente as colunas da sua planilha gerencial de contratos.
+              </p>
+            </div>
+          </div>
+          <span className="inline-flex items-center gap-1 px-3 py-1 bg-amber-500/10 text-amber-300 border border-amber-500/30 rounded-full text-xs font-semibold self-start sm:self-center">
+            Matriz CTR Ativa
+          </span>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-5">
+          {/* ID Contrato */}
+          <div className="md:col-span-5 space-y-2">
+            <label className="block text-xs font-bold text-amber-400 uppercase tracking-wider">
+              Coluna A: ID do Contrato
+            </label>
+            <div className="relative">
+              <input
+                type="text"
+                value={idContrato}
+                onChange={(e) => setIdContrato(e.target.value.toUpperCase())}
+                placeholder="Ex: CTR 02, CTR 03, CTR 04..."
+                className="w-full px-3.5 py-2.5 bg-slate-950/80 border border-slate-600 rounded-xl text-white font-bold text-sm tracking-wide focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none"
+              />
+              <span className="absolute right-3 top-2.5 text-xs text-slate-400 font-mono">
+                {idContrato || 'CTR'}
+              </span>
+            </div>
+            {/* Quick chips dos contratos */}
+            <div className="pt-1">
+              <span className="text-[10px] text-slate-400 font-medium block mb-1.5">
+                Contratos da Planilha (clique para preencher):
+              </span>
+              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
+                {CONTRATOS_MATRIZ.map((ctr) => (
+                  <button
+                    key={ctr}
+                    type="button"
+                    onClick={() => setIdContrato(ctr)}
+                    className={`px-2 py-0.5 rounded text-[11px] font-bold font-mono transition-all ${
+                      idContrato.trim().toUpperCase() === ctr
+                        ? 'bg-amber-500 text-slate-950 shadow-sm scale-105'
+                        : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700'
+                    }`}
+                  >
+                    {ctr}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Tipo / Objeto */}
+          <div className="md:col-span-7 space-y-2">
+            <label className="block text-xs font-bold text-slate-200 uppercase tracking-wider">
+              Coluna B: Tipo / Objeto do Contrato
+            </label>
+            <input
+              type="text"
+              value={tipoObjeto}
+              onChange={(e) => setTipoObjeto(e.target.value)}
+              placeholder="Ex: Empreitada Global / Obras Civis e Serviços de Engenharia"
+              className="w-full px-3.5 py-2.5 bg-slate-950/80 border border-slate-600 rounded-xl text-white text-sm focus:border-amber-400 focus:ring-1 focus:ring-amber-400 outline-none placeholder:text-slate-500"
+            />
+            {/* Visual preview of the 6 columns */}
+            <div className="mt-3 p-3 bg-slate-950/60 rounded-xl border border-slate-700/60 text-xs">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400 block mb-2">
+                Estrutura das Colunas Geradas na Auditoria:
+              </span>
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 font-mono text-[11px]">
+                <div className="p-1.5 bg-slate-900 rounded border border-slate-700 text-slate-300">
+                  <span className="text-amber-400 font-bold">Col A:</span> ID Contrato
+                </div>
+                <div className="p-1.5 bg-slate-900 rounded border border-slate-700 text-slate-300">
+                  <span className="text-amber-400 font-bold">Col B:</span> Tipo / Objeto
+                </div>
+                <div className="p-1.5 bg-slate-900 rounded border border-slate-700 text-slate-300">
+                  <span className="text-amber-400 font-bold">Col C:</span> Cláusula Auditada
+                </div>
+                <div className="p-1.5 bg-slate-900 rounded border border-slate-700 text-slate-300">
+                  <span className="text-amber-400 font-bold">Col D:</span> Diagnóstico / Vício
+                </div>
+                <div className="p-1.5 bg-slate-900 rounded border border-slate-700 text-slate-300">
+                  <span className="text-amber-400 font-bold">Col E:</span> Redação Blindada
+                </div>
+                <div className="p-1.5 bg-slate-900 rounded border border-slate-700 text-slate-300">
+                  <span className="text-amber-400 font-bold">Col F:</span> Fundamentação
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
       {/* 1. SELEÇÃO / UPLOAD DO DOCUMENTO PRINCIPAL A SER ANALISADO */}
       <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-slate-200">
         <div className="flex items-center justify-between mb-4">

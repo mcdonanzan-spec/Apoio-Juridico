@@ -104,21 +104,31 @@ Sua atuação abrange:
 - Direito Tributário e Financeiro (retenções, ISS, IRPJ/CSLL, PIS/COFINS, repasse de tributos e equilíbrio econômico-financeiro)
 - Resolução de Disputas, Arbitragem e Compliance (Lei 9.307/96, CPC/15, Lei 12.846/13 - Anticorrupção, LGPD - Lei 13.709/18, Lei da Liberdade Econômica - Lei 13.874/19).
 
+MATRIZ DE AUDITORIA CONTRATUAL EM PLANILHA (COLUNAS A A F):
+O usuário necessita preencher uma planilha gerencial de auditoria corporativa com exatamente 6 colunas para cada cláusula analisada:
+- Coluna A: "ID Contrato" (ex: "CTR 02", "CTR 03", "CTR 04" - preserve com rigor o ID do contrato fornecido ou identificado no arquivo).
+- Coluna B: "Tipo / Objeto" (síntese do modelo contratual e escopo, ex: "Empreitada Global / Obras Civis e Fornecimento").
+- Coluna C: "Cláusula Auditada" (identificação objetiva: ex: "Cláusula 4ª - Das Condições de Pagamento e Retenção por PCD").
+- Coluna D: "Diagnóstico / Vício" (exposição clara do perigo, abuso, vício de legalidade, desproporcionalidade ou contradição fática em face dos documentos probatórios/corroborativos).
+- Coluna E: "Redação Blindada (Sugestão)" (redação substitutiva executiva, clara, equilibrada e com blindagem jurídica pronta para inserção).
+- Coluna F: "Fundamentação Legal" (artigos de lei civil/processual, súmulas do STJ/TST e jurisprudência aplicável).
+
 SEU TOM E ESTILO:
 - Altamente técnico, seguro, incisivo, analítico e pragmático.
-- Fundamentação jurídica viva e profunda: cite expressamente artigos do Código Civil (ex: arts. 413, 421, 422, 478, 610 a 626), Leis Especiais, Súmulas e Teses Firmadas pelo STJ (Recursos Especiais Repetitivos) e STF.
+- Fundamentação jurídica viva e profunda: cite expressamente artigos do Código Civil (ex: arts. 413, 421, 422, 476, 478, 610 a 626), Leis Especiais, Súmulas e Teses Firmadas pelo STJ e TST.
 - Foco em resultados de negócios: aponte armadilhas, cláusulas leoninas, assimetrias contratuais, riscos de inadimplemento, multas desproporcionais e execute redação alternativa com cláusulas blindadas prontas para contraproposta.
 - ANÁLISE DE DOCUMENTOS CORROBORATIVOS / PROBATÓRIOS:
-  Quando fornecidos documentos que corroboram com a decisão (como e-mails, relatórios, atas, propostas comerciais, apresentações .ppt ou minutas .doc/.docx), realize o confronto e cruzamento rigoroso de evidências:
+  Quando fornecidos documentos que corroboram com a decisão (como e-mails, relatórios, atas, propostas comerciais, apresentações .ppt ou laudos), realize o confronto e cruzamento rigoroso de evidências:
   * O que os documentos de suporte comprovam ou contradizem em relação ao contrato principal?
   * Há promessas comerciais ou de engenharia na apresentação (.ppt) ou proposta (.doc) que foram omitidas no contrato final?
-  * Há admissão de culpa, aditivos verbais ou fatos relevantes que blindam a posição do cliente perante o juízo ou câmara arbitral?
-- Responda estritamente à instrução / prompt formulado pelo usuário, adaptando o nível de profundidade e direcionamento conforme a consulta.
+  * Há fatos ou anexos técnicos que justificam ou desconstituem retenções e multas?
 `;
 
     // Format optional parameters if present
     const opt = input.parametrosOpcionais || {};
     let contextoOpcional = '';
+    if (input.idContrato) contextoOpcional += `- ID do Contrato a registrar: ${input.idContrato}\n`;
+    if (input.tipoObjeto) contextoOpcional += `- Tipo / Objeto informado: ${input.tipoObjeto}\n`;
     if (opt.empresa) contextoOpcional += `- Empresa / Cliente: ${opt.empresa}\n`;
     if (opt.cnpj) contextoOpcional += `- CNPJ: ${opt.cnpj}\n`;
     if (opt.papel) contextoOpcional += `- Posição Contratual defendida: ${opt.papel}\n`;
@@ -136,33 +146,39 @@ SEU TOM E ESTILO:
         ? input.promptSimples.trim()
         : 'Realize uma auditoria jurídica completa de riscos, analisando cláusula por cláusula, apontando armadilhas, fundamentação legal na legislação brasileira e súmulas do STJ/STF, confrontando com os documentos corroborativos apresentados e fornecendo sugestões de redação de cláusulas defensivas para proteger os interesses da empresa.';
 
+    const idContratoAlvo = input.idContrato || (input.arquivo?.name ? (input.arquivo.name.match(/CTR\s*[-_]?\s*\d{1,3}/i)?.[0]?.toUpperCase() || 'CTR') : 'CTR');
+
     const promptText = `
 SOLICITAÇÃO DO CLIENTE / DIRETRIZ DO ADVOGADO:
 "${userPromptDirective}"
+
+IDENTIFICADOR DO CONTRATO: "${idContratoAlvo}"
 
 ${contextoOpcional ? `CONTEXTO ADICIONAL FORNECIDO (OPCIONAL):\n${contextoOpcional}\n` : ''}
 
 INSTRUÇÕES PARA O RESULTADO:
 Você deve retornar uma resposta em formato JSON estrito, estruturada conforme o schema, contendo:
-1. "titulo": Título executivo claro do parecer jurídico.
-2. "resumoExecutivo": Resumo executivo objetivo e direto, respondendo com precisão à consulta do cliente e destacando a viabilidade, armadilhas centrais e recomendação primordial.
-3. "partesIdentificadas": Qualificação sucinta das partes e do objeto jurídico envolvido.
-4. "scoreRisco": Número inteiro de 0 a 100 indicando o risco geral do instrumento/consulta (0 a 30: Baixo risco; 31 a 60: Médio risco; 61 a 80: Alto risco; 81 a 100: Crítico).
-5. "classificacaoRisco": "Baixo" | "Médio" | "Alto" | "Crítico".
-6. "principaisRiscos": Lista com 3 a 6 riscos principais e pontos de atenção crítica.
-7. "fundamentacaoDestaque": Lista de objetos { "norma": string, "aplicacao": string } contendo as principais leis, artigos e súmulas (ex: "Art. 413 do Código Civil", "Súmula 543 do STJ", "Art. 421-A do Código Civil - Liberdade Econômica").
-8. "clausulas": Lista de cláusulas críticas analisadas individualmente, com:
-   - "numero": número ou referência (ex: "Cláusula 4ª - Do Pagamento e Retenção")
-   - "titulo": título temático da cláusula
-   - "textoOriginal": trecho ou síntese da redação identificada
-   - "grauRisco": "Baixo" | "Médio" | "Alto" | "Crítico"
-   - "diagnostico": análise jurídica detalhada do perigo/desequilíbrio
-   - "fundamentacaoLegal": fundamentação jurídica no ordenamento brasileiro
-   - "redacaoSugerida": minuta de cláusula alternativa recomendada (redação blindada)
-9. "estrategiaNegocial": Recomendações práticas e táticas passo a passo para a condução negocial ou procedimental.
-10. "documentosCorroborativosAnalisados": Lista de nomes dos documentos corroborativos/probatórios avaliados.
-11. "cruzamentoCorroborativo": Análise do confronto entre os documentos corroborativos e o documento principal (reforço probatório, contradições encontradas, alinhamentos ou ressalvas).
-12. "relatorioMarkdownCompleto": Parecer formal completo e bem diagramado em Markdown, com linguagem jurídica culta e elegante, pronto para impressão executiva ou apresentação a conselho/diretoria.
+1. "idContrato": "${idContratoAlvo}".
+2. "tipoObjeto": Resumo do tipo e objeto (ex: "Empreitada Global / Obras Civis").
+3. "titulo": Título executivo claro do parecer jurídico.
+4. "resumoExecutivo": Resumo executivo objetivo e direto, respondendo com precisão à consulta do cliente e destacando a viabilidade, armadilhas centrais e recomendação primordial.
+5. "partesIdentificadas": Qualificação sucinta das partes e do objeto jurídico envolvido.
+6. "scoreRisco": Número inteiro de 0 a 100 indicando o risco geral do instrumento/consulta.
+7. "classificacaoRisco": "Baixo" | "Médio" | "Alto" | "Crítico".
+8. "principaisRiscos": Lista com 3 a 6 riscos principais e pontos de atenção crítica.
+9. "fundamentacaoDestaque": Lista de objetos { "norma": string, "aplicacao": string } contendo as principais leis, artigos e súmulas.
+10. "clausulas": Lista de cláusulas críticas auditadas individualmente.
+11. "linhasPlanilha": Lista de objetos que preenchem as colunas da planilha gerencial com:
+    - "idContrato": "${idContratoAlvo}"
+    - "tipoObjeto": tipo e objeto do contrato
+    - "clausulaAuditada": número e título da cláusula
+    - "diagnosticoVicio": síntese do vício ou assimetria encontrada
+    - "redacaoBlindada": redação alternativa recomendada
+    - "fundamentacaoLegal": embasamento legal aplicável
+12. "estrategiaNegocial": Recomendações práticas e táticas passo a passo para a condução negocial.
+13. "documentosCorroborativosAnalisados": Lista de nomes dos documentos corroborativos/probatórios avaliados.
+14. "cruzamentoCorroborativo": Análise do confronto entre os documentos corroborativos e o documento principal.
+15. "relatorioMarkdownCompleto": Parecer formal completo e bem diagramado em Markdown.
 `;
 
     const parts: any[] = [{ text: promptText }];
@@ -233,6 +249,8 @@ Você deve retornar uma resposta em formato JSON estrito, estruturada conforme o
         responseSchema: {
           type: Type.OBJECT,
           properties: {
+            idContrato: { type: Type.STRING },
+            tipoObjeto: { type: Type.STRING },
             titulo: { type: Type.STRING },
             resumoExecutivo: { type: Type.STRING },
             partesIdentificadas: { type: Type.STRING },
@@ -272,6 +290,21 @@ Você deve retornar uma resposta em formato JSON estrito, estruturada conforme o
                 required: ['numero', 'titulo', 'grauRisco', 'diagnostico', 'fundamentacaoLegal', 'redacaoSugerida'],
               },
             },
+            linhasPlanilha: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  idContrato: { type: Type.STRING },
+                  tipoObjeto: { type: Type.STRING },
+                  clausulaAuditada: { type: Type.STRING },
+                  diagnosticoVicio: { type: Type.STRING },
+                  redacaoBlindada: { type: Type.STRING },
+                  fundamentacaoLegal: { type: Type.STRING },
+                },
+                required: ['idContrato', 'tipoObjeto', 'clausulaAuditada', 'diagnosticoVicio', 'redacaoBlindada', 'fundamentacaoLegal'],
+              },
+            },
             estrategiaNegocial: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
@@ -305,6 +338,8 @@ Você deve retornar uma resposta em formato JSON estrito, estruturada conforme o
     } catch {
       // Fallback if formatting was non-JSON
       parsed = {
+        idContrato: idContratoAlvo,
+        tipoObjeto: input.tipoObjeto || 'Instrumento Contratual',
         titulo: 'Parecer Jurídico Empresarial',
         resumoExecutivo: rawText,
         partesIdentificadas: 'Conforme documento apresentado',
@@ -317,6 +352,46 @@ Você deve retornar uma resposta em formato JSON estrito, estruturada conforme o
         clausulas: [],
         estrategiaNegocial: ['Ajustar redação das cláusulas desproporcionais'],
       };
+    }
+
+    // Guarantee idContrato and tipoObjeto are defined
+    parsed.idContrato = parsed.idContrato || idContratoAlvo;
+    parsed.tipoObjeto = parsed.tipoObjeto || input.tipoObjeto || parsed.partesIdentificadas || 'Instrumento Contratual';
+
+    // Ensure linhasPlanilha is populated and perfectly aligned
+    if (!parsed.linhasPlanilha || parsed.linhasPlanilha.length === 0) {
+      parsed.linhasPlanilha = (parsed.clausulas || []).map((c) => ({
+        idContrato: parsed.idContrato || idContratoAlvo,
+        tipoObjeto: parsed.tipoObjeto || 'Contrato Empresarial',
+        clausulaAuditada: `${c.numero || ''} - ${c.titulo || ''}`.trim(),
+        diagnosticoVicio: c.diagnostico || '',
+        redacaoBlindada: c.redacaoSugerida || '',
+        fundamentacaoLegal: c.fundamentacaoLegal || 'Código Civil Brasileiro',
+        grauRisco: c.grauRisco,
+      }));
+    } else {
+      // Ensure idContrato in each row has the accurate contract ID
+      parsed.linhasPlanilha = parsed.linhasPlanilha.map((linha, idx) => ({
+        ...linha,
+        idContrato: linha.idContrato || parsed.idContrato || idContratoAlvo,
+        tipoObjeto: linha.tipoObjeto || parsed.tipoObjeto || 'Contrato Empresarial',
+        grauRisco: parsed.clausulas?.[idx]?.grauRisco || linha.grauRisco || 'Médio',
+      }));
+    }
+
+    // Enrich each clause object with spreadsheet fields
+    if (parsed.clausulas && Array.isArray(parsed.clausulas)) {
+      parsed.clausulas = parsed.clausulas.map((c, idx) => {
+        const linha = parsed.linhasPlanilha?.[idx];
+        return {
+          ...c,
+          idContrato: parsed.idContrato || idContratoAlvo,
+          tipoObjeto: parsed.tipoObjeto || 'Contrato',
+          clausulaAuditada: linha?.clausulaAuditada || `${c.numero} - ${c.titulo}`.trim(),
+          diagnosticoVicio: linha?.diagnosticoVicio || c.diagnostico,
+          redacaoBlindada: linha?.redacaoBlindada || c.redacaoSugerida,
+        };
+      });
     }
 
     // Synthesize comprehensive markdown report if not provided directly
@@ -506,11 +581,24 @@ ${JSON.stringify(currentReport.estrategiaNegocial || [], null, 2)}
     let refined: StructuredAnalysisResult = JSON.parse(raw);
 
     // Preserve metadata & document arrays
+    refined.idContrato = currentReport.idContrato || 'CTR';
+    refined.tipoObjeto = currentReport.tipoObjeto || 'Contrato Empresarial';
     refined.documentosCorroborativosAnalisados = currentReport.documentosCorroborativosAnalisados;
     if (!refined.cruzamentoCorroborativo && currentReport.cruzamentoCorroborativo) {
       refined.cruzamentoCorroborativo = currentReport.cruzamentoCorroborativo;
     }
     refined.versaoParecer = (currentReport.versaoParecer || 1) + 1;
+
+    // Synchronize spreadsheet rows with refined clauses
+    refined.linhasPlanilha = (refined.clausulas || []).map((c) => ({
+      idContrato: refined.idContrato || 'CTR',
+      tipoObjeto: refined.tipoObjeto || 'Contrato Empresarial',
+      clausulaAuditada: `${c.numero || ''} - ${c.titulo || ''}`.trim(),
+      diagnosticoVicio: c.diagnostico || '',
+      redacaoBlindada: c.redacaoSugerida || '',
+      fundamentacaoLegal: c.fundamentacaoLegal || 'Código Civil Brasileiro',
+      grauRisco: c.grauRisco,
+    }));
 
     // Synthesize markdown if needed
     if (!refined.relatorioMarkdownCompleto) {
