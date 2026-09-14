@@ -52,7 +52,7 @@ interface ReportDisplayProps {
 
 const ReportDisplay: React.FC<ReportDisplayProps> = ({ report, onNewAnalysis, onUpdateReport }) => {
   const [currentReport, setCurrentReport] = useState<StructuredAnalysisResult>(report);
-  const [activeTab, setActiveTab] = useState<'planilha' | 'chat' | 'parecer' | 'clausulas' | 'textoCompleto'>('planilha');
+  const [activeTab, setActiveTab] = useState<'chat' | 'planilha' | 'parecer' | 'clausulas' | 'textoCompleto'>('chat');
   const [copiedClauseIdx, setCopiedClauseIdx] = useState<number | null>(null);
   const [copiedRowIdx, setCopiedRowIdx] = useState<number | null>(null);
   const [copiedAll, setCopiedAll] = useState(false);
@@ -194,6 +194,8 @@ Por qual cláusula ou ponto negocial gostaria de começar?`,
     if (e) e.preventDefault();
     const query = (directMessage || chatInput).trim();
     if (!query || chatLoading || isRefining) return;
+
+    setActiveTab('chat');
 
     const userMsg: ChatMessage = {
       id: Date.now().toString(),
@@ -671,10 +673,102 @@ O Score de Risco foi recalculado para **${refined.scoreRisco}/100 (${refined.cla
             </div>
           </div>
         )}
+
+        {/* CAMPO DE INTERAÇÃO COM A IA NA NARRATIVA CRIADA (MIX INTELIGENTE) */}
+        <div className="mt-6 pt-5 border-t border-slate-200">
+          <div className="bg-gradient-to-r from-amber-50/80 via-white to-amber-50/50 p-4 md:p-5 rounded-xl border border-amber-200/90 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-800 flex items-center justify-center font-bold">
+                  <MessageSquare className="w-4 h-4 text-amber-700" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900">
+                    Interagir com o Agente de IA sobre a Narrativa & Inserir Novas Informações
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    Insira novas decisões, fatos ou instrua a IA para ajustar cláusulas, calibrar o parecer e atualizar a planilha gerencial.
+                  </p>
+                </div>
+              </div>
+
+              {chatMessages.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('chat')}
+                  className="text-[11px] text-amber-800 hover:text-amber-950 font-bold underline self-start sm:self-auto"
+                >
+                  Ver histórico da conversa ({chatMessages.length} msgs) →
+                </button>
+              )}
+            </div>
+
+            <form onSubmit={handleSendChat} className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Ex: 'Incorpore que o prazo acordado é de 20 dias', 'Ajuste a multa da Cláusula 4ª' ou 'Como rebater o vício de rescisão?'..."
+                className="flex-1 px-3.5 py-2.5 text-xs md:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-slate-900 bg-white placeholder:text-slate-400 shadow-2xs"
+                disabled={chatLoading || isRefining}
+              />
+              <button
+                type="submit"
+                disabled={chatLoading || isRefining || !chatInput.trim()}
+                className="px-4 py-2.5 bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1.5 shadow-xs shrink-0"
+              >
+                <Send className="w-3.5 h-3.5 text-amber-400" />
+                <span>Enviar à IA</span>
+              </button>
+            </form>
+
+            {/* Sugestões Rápidas de Ajuste da Narrativa */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2 border-t border-amber-100/80">
+              <span className="text-[10px] uppercase font-bold text-slate-400 mr-1">Sugestões:</span>
+              {[
+                'Ajustar cláusula penal para 10% (Art. 413 CC)',
+                'Considerar termo de aditamento com novo cronograma',
+                'Proteger retenção financeira contra glosas imotivadas',
+                'Está tudo conforme meu entendimento. Atualizar parecer!'
+              ].map((sug, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  onClick={() => {
+                    if (sug.includes('Atualizar parecer')) {
+                      handleRefineReport('O cliente informou que está de acordo com as deliberações. Formalize o parecer oficial.');
+                    } else {
+                      setChatInput(sug);
+                      setActiveTab('chat');
+                    }
+                  }}
+                  className="text-[10px] px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-amber-400 hover:bg-amber-50/50 text-slate-700 transition-colors font-medium shadow-2xs"
+                >
+                  + {sug}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Navigation Tabs */}
       <div className="flex border-b border-slate-200 bg-white rounded-t-xl px-4 pt-3 gap-2 no-print overflow-x-auto">
+        <button
+          onClick={() => setActiveTab('chat')}
+          className={`pb-3 px-4 text-xs font-bold border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 ${
+            activeTab === 'chat'
+              ? 'border-amber-600 text-amber-950 font-extrabold'
+              : 'border-transparent text-slate-500 hover:text-slate-800'
+          }`}
+        >
+          <MessageSquare className="w-4 h-4 text-amber-600" />
+          <span>Consultoria & Refinamento com Agente</span>
+          <span className="px-1.5 py-0.2 bg-amber-500 text-slate-950 rounded-full text-[10px] font-extrabold">
+            Ativa
+          </span>
+        </button>
+
         <button
           onClick={() => setActiveTab('planilha')}
           className={`pb-3 px-4 text-xs font-bold border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 ${
@@ -687,21 +781,6 @@ O Score de Risco foi recalculado para **${refined.scoreRisco}/100 (${refined.cla
           <span>Planilha de Auditoria (Colunas A a F)</span>
           <span className="px-1.5 py-0.2 bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-full text-[10px] font-extrabold">
             {linhasExibicao.length} {linhasExibicao.length === 1 ? 'linha' : 'linhas'}
-          </span>
-        </button>
-
-        <button
-          onClick={() => setActiveTab('chat')}
-          className={`pb-3 px-4 text-xs font-bold border-b-2 whitespace-nowrap transition-colors flex items-center gap-2 ${
-            activeTab === 'chat'
-              ? 'border-amber-600 text-amber-950'
-              : 'border-transparent text-slate-500 hover:text-slate-800'
-          }`}
-        >
-          <MessageSquare className="w-4 h-4 text-amber-600" />
-          <span>Consultoria & Refinamento com Agente</span>
-          <span className="px-1.5 py-0.2 bg-amber-500 text-slate-950 rounded-full text-[10px] font-extrabold">
-            Ativa
           </span>
         </button>
 
@@ -1014,6 +1093,43 @@ O Score de Risco foi recalculado para **${refined.scoreRisco}/100 (${refined.cla
               Baixar .xlsx
             </button>
           </div>
+
+          {/* Campo de Interação com a IA na Planilha */}
+          <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl">
+            <div className="flex items-center justify-between gap-2 mb-2">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-amber-600" />
+                <span className="text-xs font-bold text-slate-900">
+                  Ajustar Colunas, Vícios ou Minutas Blindadas desta Planilha com o Agente de IA:
+                </span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setActiveTab('chat')}
+                className="text-[11px] text-amber-800 hover:underline font-bold"
+              >
+                Ir para a Consultoria Completa →
+              </button>
+            </div>
+            <form onSubmit={handleSendChat} className="flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Ex: 'Ajuste a redação blindada da Cláusula 3ª para limitar juros', 'Mude o diagnóstico da Coluna D'..."
+                className="flex-1 px-3.5 py-2.5 text-xs md:text-sm border border-slate-300 rounded-xl focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none text-slate-900 bg-white"
+                disabled={chatLoading || isRefining}
+              />
+              <button
+                type="submit"
+                disabled={chatLoading || isRefining || !chatInput.trim()}
+                className="px-4 py-2.5 bg-slate-900 hover:bg-black disabled:bg-slate-300 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-xs shrink-0"
+              >
+                <Send className="w-3.5 h-3.5 text-amber-400" />
+                <span>Enviar à IA</span>
+              </button>
+            </form>
+          </div>
         </div>
       )}
 
@@ -1205,6 +1321,99 @@ O Score de Risco foi recalculado para **${refined.scoreRisco}/100 (${refined.cla
                 Emitir Relatório Final (PDF)
               </button>
             </div>
+          </div>
+
+          {/* MATRIZ VINCULADA (COLUNAS A A F) - MIX INTEGRADO NA CONSULTORIA */}
+          <div className="mt-6 pt-5 border-t border-slate-100">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-3 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                  <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                    Planilha Gerencial Vinculada a esta Análise
+                    <span className="px-2 py-0.2 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                      Colunas A a F
+                    </span>
+                  </h4>
+                  <p className="text-[10px] text-slate-500">
+                    {linhasExibicao.length} linha(s) com ID {currentReport.idContrato || 'CTR'}, Vício e Redação Blindada.
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={handleCopiarParaExcel}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-white hover:bg-slate-100 text-slate-800 border border-slate-300 rounded-lg text-xs font-bold shadow-2xs transition-colors"
+                  title="Copiar colunas A a F para colar com Ctrl+V no Excel"
+                >
+                  <Copy className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Copiar p/ Excel</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleExportarExcel}
+                  disabled={isExportingExcel}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-emerald-700 hover:bg-emerald-800 text-white rounded-lg text-xs font-bold shadow-2xs transition-colors"
+                >
+                  <FileDown className="w-3.5 h-3.5" />
+                  <span>Baixar .xlsx</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('planilha')}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 bg-slate-900 hover:bg-black text-white rounded-lg text-xs font-bold shadow-2xs transition-colors"
+                >
+                  <span>Ver Planilha Completa</span>
+                  <ExternalLink className="w-3 h-3 text-amber-400" />
+                </button>
+              </div>
+            </div>
+
+            {/* Cards Resumo das Linhas da Planilha */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {linhasExibicao.slice(0, 4).map((linha, idx) => (
+                <div
+                  key={idx}
+                  className="p-3 bg-white rounded-xl border border-slate-200 text-xs space-y-1.5 shadow-2xs hover:border-emerald-300 transition-colors"
+                >
+                  <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5">
+                    <span className="font-mono text-[10px] font-bold px-1.5 py-0.5 bg-slate-900 text-amber-400 rounded">
+                      Col A: {linha.idContrato}
+                    </span>
+                    <span className="text-[10px] text-slate-500 truncate max-w-[170px]" title={linha.tipoObjeto}>
+                      {linha.tipoObjeto}
+                    </span>
+                  </div>
+                  <div className="font-bold text-slate-900 text-[11px] truncate">
+                    Col C: {linha.clausulaAuditada}
+                  </div>
+                  <div className="text-[11px] text-red-900 bg-red-50/70 p-2 rounded border border-red-100 line-clamp-2">
+                    <strong className="text-red-700">Col D (Vício):</strong> {linha.diagnosticoVicio}
+                  </div>
+                  <div className="text-[11px] text-emerald-950 bg-emerald-50/70 p-2 rounded border border-emerald-100 font-mono line-clamp-2">
+                    <strong className="text-emerald-800">Col E (Blindada):</strong> {linha.redacaoBlindada}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {linhasExibicao.length > 4 && (
+              <div className="mt-2.5 text-center">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('planilha')}
+                  className="text-xs text-emerald-800 font-bold hover:underline"
+                >
+                  + Ver todas as {linhasExibicao.length} linhas na aba Planilha de Auditoria (Colunas A a F) →
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
